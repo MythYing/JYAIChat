@@ -8,7 +8,7 @@
 #import "JYChatInputView.h"
 #import "JYMacro.h"
 
-@interface JYChatInputView () <UITextViewDelegate, QMUIKeyboardManagerDelegate>
+@interface JYChatInputView () <UITextViewDelegate>
 
 @property(nonatomic, strong) UIView *topLineView;
 @property(nonatomic, strong) UILabel *placeholderLabel;
@@ -16,7 +16,6 @@
 @property(nonatomic, strong) UIView *keyboardPlaceholderView;
 @property(nonatomic, strong) UIView *bottomPlaceholderView;
 
-@property(nonatomic, strong) QMUIKeyboardManager *keyboardManager;
 @property(nonatomic, assign) CGFloat textViewHeight;
 @property(nonatomic, assign) CGFloat keyboardPlaceholderHeight;
 @property(nonatomic, assign) CGFloat bottomPlaceholderHeight;
@@ -37,6 +36,10 @@
         [self setupUI];
     }
     return self;
+}
+
+- (void)dealloc {
+    [NSNotificationCenter.defaultCenter removeObserver:self];
 }
 
 - (void)setupUI {
@@ -91,7 +94,9 @@
         make.top.bottom.equalTo(self.optionListView);
     }];
     
-    self.keyboardManager = [[QMUIKeyboardManager alloc] initWithDelegate:self];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboardWillShow:) name:UIKeyboardWillShowNotification object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboardWillHide:) name:UIKeyboardWillHideNotification object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboardWillChangeFrame:) name:UIKeyboardWillChangeFrameNotification object:nil];
 }
 
 - (void)didMoveToWindow {
@@ -106,8 +111,6 @@
         }
     }
 }
-
-#pragma mark - Action
 
 #pragma mark - UITextViewDelegate
 
@@ -142,26 +145,28 @@
     return YES;
 }
 
-#pragma mark - QMUIKeyboardManagerDelegate
+#pragma mark - Keyboard
 
-- (void)keyboardWillShowWithUserInfo:(QMUIKeyboardUserInfo *)keyboardUserInfo {
-    [self handleKeyboardWillChangeFrameWithUserInfo:keyboardUserInfo endFrameHeight:keyboardUserInfo.endFrame.size.height];
+- (void)keyboardWillShow:(NSNotification *)notification {
+    CGFloat endFrameHeight = [notification.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue].size.height;
+    [self handleKeyboardWithEndFrameHeight:endFrameHeight];
 }
 
-- (void)keyboardWillHideWithUserInfo:(QMUIKeyboardUserInfo *)keyboardUserInfo {
-    [self handleKeyboardWillChangeFrameWithUserInfo:keyboardUserInfo endFrameHeight:0];
+- (void)keyboardWillHide:(NSNotification *)notification {
+    [self handleKeyboardWithEndFrameHeight:0];
 }
 
-- (void)keyboardWillChangeFrameWithUserInfo:(QMUIKeyboardUserInfo *)keyboardUserInfo {
-    [self handleKeyboardWillChangeFrameWithUserInfo:keyboardUserInfo endFrameHeight:keyboardUserInfo.endFrame.size.height];
+- (void)keyboardWillChangeFrame:(NSNotification *)notification {
+    CGFloat endFrameHeight = [notification.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue].size.height;
+    [self handleKeyboardWithEndFrameHeight:endFrameHeight];
 }
 
-- (void)handleKeyboardWillChangeFrameWithUserInfo:(QMUIKeyboardUserInfo *)keyboardUserInfo endFrameHeight:(CGFloat)endFrameHeight {
+- (void)handleKeyboardWithEndFrameHeight:(CGFloat)endFrameHeight {
     CGFloat bottomInset = JYUIHelper.getKeyWindow.safeAreaInsets.bottom;
     CGFloat height = fmax(endFrameHeight - bottomInset, 0);
     if (self.keyboardPlaceholderHeight != height) {
         self.keyboardPlaceholderHeight = height;
-        [UIView animateWithDuration:keyboardUserInfo.animationDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
+        [UIView animateWithDuration:0.25 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
             [self.keyboardPlaceholderView mas_updateConstraints:^(MASConstraintMaker *make) {
                 make.height.equalTo(@(height));
             }];
