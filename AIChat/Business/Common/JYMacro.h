@@ -9,7 +9,7 @@
 #import <QMUIKit/QMUIKit.h>
 #import <Masonry/Masonry.h>
 #import <YYKit/YYKit.h>
-#import "JYUIHelper.h"
+#import "JYHelper.h"
 
 #ifndef JYMacro_h
 #define JYMacro_h

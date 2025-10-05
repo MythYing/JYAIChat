@@ -1,12 +1,32 @@
 //
-//  JYUIHelper.m
+//  JYHelper.m
 //  AIChat
 //
 //  Created by JiangYing on 2025/10/4.
 //
 
-#import "JYUIHelper.h"
+#import "JYHelper.h"
 #import <YYKit/YYKit.h>
+
+@implementation JYHelper
+
++ (NSString *)authorization {
+    return @"Bearer sat_H1Mqn84uMjTk2iodnjgmQd0HYrKYSvaoTNH0nXjNLO8gGt1o5CLvVkqyL9qNEWqW";
+}
+
++ (NSString *)workflowUrl {
+    return @"https://api.coze.cn/v1/workflow/stream_run";
+}
+
++ (NSString *)workflowId {
+    return @"7557225276296888329";
+}
+
++ (NSString *)workflowVersion {
+    return @"v0.0.3";
+}
+
+@end
 
 @implementation JYUIHelper
 

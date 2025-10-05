@@ -1,5 +1,5 @@
 //
-//  JYUIHelper.h
+//  JYHelper.h
 //  AIChat
 //
 //  Created by JiangYing on 2025/10/4.
@@ -7,6 +7,15 @@
 
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
+
+@interface JYHelper : NSObject
+
++ (NSString *_Nonnull)authorization;
++ (NSString *_Nonnull)workflowUrl;
++ (NSString *_Nonnull)workflowId;
++ (NSString *_Nonnull)workflowVersion;
+
+@end
 
 @interface JYUIHelper : NSObject
 

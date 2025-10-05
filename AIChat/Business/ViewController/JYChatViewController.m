@@ -12,6 +12,7 @@
 #import "JYChatInputView.h"
 #import "JYChatMessageUserCell.h"
 #import "JYChatMessageAICell.h"
+#import <JYEventSource/EventSource.h>
 
 @interface JYChatViewController () <UITableViewDelegate, UITableViewDataSource>
 
@@ -19,7 +20,13 @@
 @property(nonatomic, strong) JYChatInputView *inputView;
 @property(nonatomic, strong) UITableView *messageTableView;
 
-@property(nonatomic, copy) NSArray<JYMessage *> *messageList;
+@property(nonatomic, copy) YYThreadSafeArray *messageList;
+@property(nonatomic, strong) EventSource *eventSource;
+@property(nonatomic, assign) NSTimeInterval lastTimeReloadTableView;
+
+@property(nonatomic, strong) JYMessage *deepseekMessage;
+@property(nonatomic, strong) JYMessage *doubaoMessage;
+@property(nonatomic, strong) JYMessage *mixedMessage;
 
 @end
 
@@ -31,7 +38,7 @@
 {
     self = [super init];
     if (self) {
-        _messageList = @[];
+        _messageList = [YYThreadSafeArray array];
     }
     return self;
 }
@@ -90,27 +97,147 @@
     self.inputView.textView.text = @"";
     [self.inputView.textView.delegate textViewDidChange:self.inputView.textView];
     
-    
-    // TDJY: 发送消息逻辑
     JYMessage *userMessage = [[JYMessage alloc] init];
     userMessage.role = JYMessageRoleUser;
+    userMessage.model = JYMessageModelNone;
+    userMessage.contentId = [NSUUID UUID].UUIDString.lowercaseString;
     userMessage.content = text;
-    
-    JYMessage *aiMessage = [[JYMessage alloc] init];
-    aiMessage.role = JYMessageRoleAI;
-    aiMessage.thought = @"模拟AI的思考过程...\n模拟AI的思考过程...\n模拟AI的思考过程...\n模拟AI的思考过程...";
-    aiMessage.content = @"模拟AI的回复...\n模拟AI的回复...\n模拟AI的回复...\n模拟AI的回复...\n模拟AI的回复...\n模拟AI的回复...\n模拟AI的回复...\n模拟AI的回复...";
-    
-    NSMutableArray *newMessageList = [NSMutableArray arrayWithArray:self.messageList];
-    [newMessageList addObject:userMessage];
-    [newMessageList addObject:aiMessage];
-    self.messageList = [newMessageList copy];
+    [self.messageList appendObject:userMessage];
     
     [self.messageTableView reloadData];
     
     dispatch_async(dispatch_get_main_queue(), ^{
         [self.messageTableView scrollToBottomAnimated:YES];
     });
+    
+    // 消息清空
+    self.deepseekMessage = nil;
+    self.doubaoMessage = nil;
+    self.mixedMessage = nil;
+    
+    if (self.eventSource) {
+        EventSource *eventSource = self.eventSource;
+        self.eventSource = nil;
+        [eventSource close];
+    }
+    
+    EventSourceConfig *config = [[EventSourceConfig alloc] init];
+    config.url = [NSURL URLWithString:JYHelper.workflowUrl];
+    config.method = @"POST";
+    config.headers = @{
+        @"Authorization": JYHelper.authorization,
+        @"Content-Type": @"application/json",
+    };
+    config.body = @{
+        @"workflow_id": JYHelper.workflowId,
+        @"workflow_version": JYHelper.workflowVersion,
+        @"parameters": @{
+            @"deepThinking": @(self.inputView.deepThinkingOptionView.isSelected),
+            @"modelDeepseek": @(YES),
+            @"modelDoubao": @(YES),
+            @"modelHunyuan": @(YES),
+            @"query": text ?: @"",
+            @"searchBaidu": @(YES),
+            @"searchSougou": @(YES),
+            @"searchToutiao": @(YES),
+        }
+    }.jsonStringEncoded.dataValue;
+    self.eventSource = [[EventSource alloc] initWithConfig:config];
+    @weakify(self);
+    [self.eventSource onMessage:^(EventSourceEvent *event) {
+        @strongify(self);
+        [self onSSEMessage:event];
+    }];
+    [self.eventSource onError:^(EventSourceEvent *event) {
+        @strongify(self);
+        if (self.eventSource) {
+            [self.eventSource close];
+            self.eventSource = nil;
+            NSLog(@"[jy] SSE Error: \n event.error: %@", event.error);
+        }
+    }];
+}
+
+- (void)onSSEMessage:(EventSourceEvent *)event {
+    NSLog(@"[jy] SSE Message: \n event.id: %@ \n event.event: %@ \n event.data: %@", event.id, event.event, event.data);
+    if ([event.event isEqualToString:JYMessageEventDone]) {
+        // 消息清空
+        self.deepseekMessage = nil;
+        self.doubaoMessage = nil;
+        self.mixedMessage = nil;
+        
+        EventSource *eventSource = self.eventSource;
+        self.eventSource = nil;
+        [eventSource close];
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.messageTableView reloadData];
+            [self.messageTableView scrollToBottomAnimated:NO];
+        });
+    } else if ([event.event isEqualToString:JYMessageEventMessage]) {
+        JYCozeData *data = [JYCozeData modelWithJSON:event.data];
+        NSArray<NSString *> *arr = [data.node_title componentsSeparatedByString:@"_"];
+        if (arr.count != 3) {
+            return;
+        }
+        NSString *model = arr[0];
+        BOOL isContent = [arr[2] isEqualToString:JYMessageOutputContent];
+        
+        JYMessage *aiMessage;
+        if ([model isEqualToString:JYMessageModelNameDeepseek]) {
+            if (self.deepseekMessage == nil) {
+                JYMessage *newMessage = [[JYMessage alloc] init];
+                newMessage.role = JYMessageRoleAI;
+                newMessage.model = JYMessageModelDeepseek;
+                [self.messageList appendObject:newMessage];
+                self.deepseekMessage = newMessage;
+            }
+            aiMessage = self.deepseekMessage;
+        } else if ([model isEqualToString:JYMessageModelNameDoubao]) {
+            if (self.doubaoMessage == nil) {
+                JYMessage *newMessage = [[JYMessage alloc] init];
+                newMessage.role = JYMessageRoleAI;
+                newMessage.model = JYMessageModelDoubao;
+                [self.messageList appendObject:newMessage];
+                self.doubaoMessage = newMessage;
+            }
+            aiMessage = self.doubaoMessage;
+        } else if ([model isEqualToString:JYMessageModelNameMixed]) {
+            if (self.mixedMessage == nil) {
+                JYMessage *newMessage = [[JYMessage alloc] init];
+                newMessage.role = JYMessageRoleAI;
+                newMessage.model = JYMessageModelMixed;
+                [self.messageList appendObject:newMessage];
+                self.mixedMessage = newMessage;
+            }
+            aiMessage = self.mixedMessage;
+        }
+        if (aiMessage) {
+            if (!isContent) {
+                if (aiMessage.thoughtId.length == 0) {
+                    aiMessage.thoughtId = data.node_execute_uuid;
+                }
+                if ([data.node_execute_uuid isEqualToString:aiMessage.thoughtId]) {
+                    aiMessage.thought = [aiMessage.thought stringByAppendingString:data.content];
+                }
+            } else {
+                if (aiMessage.contentId.length == 0) {
+                    aiMessage.contentId = data.node_execute_uuid;
+                }
+                if ([data.node_execute_uuid isEqualToString:aiMessage.contentId]) {
+                    aiMessage.content = [aiMessage.content stringByAppendingString:data.content];
+                }
+            }
+        }
+        NSTimeInterval now = NSDate.date.timeIntervalSince1970;
+        if (now - self.lastTimeReloadTableView >= 0.5) {
+            self.lastTimeReloadTableView = now;
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self.messageTableView reloadData];
+                [self.messageTableView scrollToBottomAnimated:NO];
+            });
+        }
+    }
 }
 
 #pragma mark - UITableViewDelegate & UITableViewDataSource

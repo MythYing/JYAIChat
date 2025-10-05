@@ -51,10 +51,14 @@
 
 #pragma mark - Class Method
 
+static JYChatMessageUserCell *calculateCell;
+
 + (CGFloat)cellHeightWithMessage:(JYMessage *)message {
-    JYChatMessageUserCell *cell = [[JYChatMessageUserCell alloc] init];
-    [cell refreshWithMessage:message];
-    CGFloat height = [cell.contentView systemLayoutSizeFittingSize:CGSizeMake(SCREEN_WIDTH, CGFLOAT_MAX) withHorizontalFittingPriority:UILayoutPriorityRequired verticalFittingPriority:UILayoutPriorityFittingSizeLevel].height;
+    if (calculateCell == nil) {
+        calculateCell = [[JYChatMessageUserCell alloc] init];
+    }
+    [calculateCell refreshWithMessage:message];
+    CGFloat height = [calculateCell.contentView systemLayoutSizeFittingSize:CGSizeMake(SCREEN_WIDTH, CGFLOAT_MAX) withHorizontalFittingPriority:UILayoutPriorityRequired verticalFittingPriority:UILayoutPriorityFittingSizeLevel].height;
     return height;
 }
 
