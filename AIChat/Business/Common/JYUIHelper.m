@@ -48,6 +48,10 @@
     return [UIColor colorWithRGB:0x444444];
 }
 
++ (UIColor *)thirdTextColor {
+    return [UIColor colorWithRGB:0x888888];
+}
+
 + (UIColor *)placeholderColor {
     return [UIColor colorWithRGB:0xAAAAAA];
 }

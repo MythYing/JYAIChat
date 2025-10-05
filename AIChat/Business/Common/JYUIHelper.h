@@ -18,6 +18,7 @@
 
 + (UIColor *_Nonnull)firstTextColor;
 + (UIColor *_Nonnull)secondTextColor;
++ (UIColor *_Nonnull)thirdTextColor;
 
 + (UIColor *_Nonnull)placeholderColor;
 + (UIColor *_Nonnull)highlightColor;
