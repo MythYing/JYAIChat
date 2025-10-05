@@ -20,7 +20,9 @@
     UIWindowScene *windowScene = JY_SAFE_CAST(scene, UIWindowScene);
     if (windowScene != nil) {
         self.window = [[UIWindow alloc] initWithWindowScene:windowScene];
-        self.window.rootViewController = [[JYChatViewController alloc] init];
+        JYChatViewController *chatVC = [[JYChatViewController alloc] init];
+        UINavigationController *navVC = [[UINavigationController alloc] initWithRootViewController:chatVC];
+        self.window.rootViewController = navVC;
         [self.window makeKeyAndVisible];
     }
 }
