@@ -8,9 +8,10 @@
 #import "JYChatInputView.h"
 #import "JYMacro.h"
 
-@interface JYChatInputView () <QMUITextViewDelegate, QMUIKeyboardManagerDelegate>
+@interface JYChatInputView () <UITextViewDelegate, QMUIKeyboardManagerDelegate>
 
 @property(nonatomic, strong) UIView *topLineView;
+@property(nonatomic, strong) UILabel *placeholderLabel;
 @property(nonatomic, strong) UIView *optionListView;
 @property(nonatomic, strong) UIView *keyboardPlaceholderView;
 @property(nonatomic, strong) UIView *bottomPlaceholderView;
@@ -43,6 +44,7 @@
     
     [self addSubview:self.topLineView];
     [self addSubview:self.textView];
+    [self addSubview:self.placeholderLabel];
     [self addSubview:self.optionListView];
     [self addSubview:self.keyboardPlaceholderView];
     [self addSubview:self.bottomPlaceholderView];
@@ -58,6 +60,11 @@
         make.leading.trailing.equalTo(self).inset(16);
         make.top.equalTo(self).inset(12);
         make.height.equalTo(@(self.textViewHeight));
+    }];
+    [self.placeholderLabel mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.equalTo(self.textView);
+        make.leading.trailing.equalTo(self.textView).inset(12);
+        make.height.equalTo(@44);
     }];
     [self.optionListView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.leading.trailing.equalTo(self).inset(16);
@@ -102,9 +109,18 @@
 
 #pragma mark - Action
 
-#pragma mark - QMUITextViewDelegate
+#pragma mark - UITextViewDelegate
 
-- (void)textView:(QMUITextView *)textView newHeightAfterTextChanged:(CGFloat)height {
+- (void)textViewDidBeginEditing:(UITextView *)textView {
+    self.placeholderLabel.hidden = YES;
+}
+
+- (void)textViewDidEndEditing:(UITextView *)textView {
+    self.placeholderLabel.hidden = self.textView.text.length > 0;
+}
+
+- (void)textViewDidChange:(UITextView *)textView {
+    CGFloat height = [textView sizeThatFits:CGSizeMake(SCREEN_WIDTH - 32, CGFLOAT_MAX)].height;
     height = fmin(fmax(height, 44), 120);
     if (height != self.textViewHeight) {
         self.textViewHeight = height;
@@ -113,13 +129,16 @@
         }];
         [self.textView setNeedsUpdateConstraints];
     }
+    self.placeholderLabel.hidden = self.textView.text.length > 0 || self.textView.isFirstResponder;
 }
 
-- (BOOL)textViewShouldReturn:(QMUITextView *)textView {
-    if (textView.text.length == 0) {
-        return YES;
+- (BOOL)textView:(UITextView *)textView shouldChangeTextInRange:(NSRange)range replacementText:(NSString *)text {
+    if ([text isEqualToString:@"\n"]) {
+        if (textView.text.length > 0) {
+            JY_SAFE_BLOCK(self.sendAction);
+        }
+        return NO;
     }
-    JY_SAFE_BLOCK(self.sendAction);
     return YES;
 }
 
@@ -162,14 +181,14 @@
     return _topLineView;
 }
 
-- (UIView *)textView {
+- (UITextView *)textView {
     if (_textView == nil) {
-        QMUITextView *textView = [[QMUITextView alloc] init];
-        textView.font = [UIFont systemFontOfSize:14];
-        textView.textColor = UIColor.firstTextColor;
+        UITextView *textView = [[UITextView alloc] init];
+//        textView.font = [UIFont systemFontOfSize:14];
+//        textView.textColor = UIColor.firstTextColor;
         textView.backgroundColor = UIColor.whiteColor;
-        textView.placeholder = @"请输入文字";
-        textView.placeholderColor = UIColor.placeholderColor;
+//        textView.placeholder = @"请输入文字";
+//        textView.placeholderColor = UIColor.placeholderColor;
         textView.returnKeyType = UIReturnKeySend;
         textView.textContainerInset = UIEdgeInsetsMake(12, 12, 12, 12);
         textView.layer.cornerRadius = 22;
@@ -186,6 +205,17 @@
         _textView = textView;
     }
     return _textView;
+}
+
+- (UILabel *)placeholderLabel {
+    if (_placeholderLabel == nil) {
+        UILabel *label = [[UILabel alloc] init];
+        label.font = [UIFont systemFontOfSize:14];
+        label.textColor = UIColor.placeholderColor;
+        label.text = @"请输入文字进行提问";
+        _placeholderLabel = label;
+    }
+    return _placeholderLabel;
 }
 
 - (UIView *)optionListView {
