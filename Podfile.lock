@@ -15,7 +15,10 @@ PODS:
   - AFNetworking/UIKit (4.0.1):
     - AFNetworking/NSURLSession
   - CDMarkdownKit (2.5.1)
-  - EventSource (1.0.4)
+  - JYEventSource (2.0.0)
+  - JYNonReusableTableView (1.0.0):
+    - Masonry
+    - YYKit
   - LookinServer (1.0.5)
   - Masonry (1.1.0)
   - QMUIKit (4.8.0):
@@ -341,7 +344,8 @@ PODS:
 DEPENDENCIES:
   - AFNetworking (from `https://github.com/AFNetworking/AFNetworking.git`, tag `4.0.1`)
   - CDMarkdownKit (from `https://github.com/chrisdhaan/CDMarkdownKit.git`, tag `2.5.1`)
-  - EventSource (from `https://github.com/neilco/EventSource.git`, tag `1.0.4`)
+  - JYEventSource (from `https://github.com/MythYing/JYEventSource.git`, tag `2.0.0`)
+  - JYNonReusableTableView (from `https://github.com/MythYing/JYNonReusableTableView.git`, tag `1.0.0`)
   - LookinServer (from `https://github.com/QMUI/LookinServer.git`, tag `1.0.5`)
   - Masonry (from `https://github.com/SnapKit/Masonry.git`, tag `v1.1.0`)
   - QMUIKit (from `https://github.com/Tencent/QMUI_iOS.git`, tag `4.8.0`)
@@ -354,9 +358,12 @@ EXTERNAL SOURCES:
   CDMarkdownKit:
     :git: https://github.com/chrisdhaan/CDMarkdownKit.git
     :tag: 2.5.1
-  EventSource:
-    :git: https://github.com/neilco/EventSource.git
-    :tag: 1.0.4
+  JYEventSource:
+    :git: https://github.com/MythYing/JYEventSource.git
+    :tag: 2.0.0
+  JYNonReusableTableView:
+    :git: https://github.com/MythYing/JYNonReusableTableView.git
+    :tag: 1.0.0
   LookinServer:
     :git: https://github.com/QMUI/LookinServer.git
     :tag: 1.0.5
@@ -377,9 +384,12 @@ CHECKOUT OPTIONS:
   CDMarkdownKit:
     :git: https://github.com/chrisdhaan/CDMarkdownKit.git
     :tag: 2.5.1
-  EventSource:
-    :git: https://github.com/neilco/EventSource.git
-    :tag: 1.0.4
+  JYEventSource:
+    :git: https://github.com/MythYing/JYEventSource.git
+    :tag: 2.0.0
+  JYNonReusableTableView:
+    :git: https://github.com/MythYing/JYNonReusableTableView.git
+    :tag: 1.0.0
   LookinServer:
     :git: https://github.com/QMUI/LookinServer.git
     :tag: 1.0.5
@@ -396,12 +406,13 @@ CHECKOUT OPTIONS:
 SPEC CHECKSUMS:
   AFNetworking: 4d353c3ca66d300f1be66e439e412f8609358935
   CDMarkdownKit: df3ca335f800aef5df3ba700de6b7108e8f235f9
-  EventSource: f7a143f7d87592a4adf2a8545bdb10701b5acf0e
+  JYEventSource: f54738d7a460f0eea0547a3070bc4335774acfd1
+  JYNonReusableTableView: d929e700683d8938dc580f95683c39a368431653
   LookinServer: 3d9a02529ed94a6a08154440c26f6d7f453bb1e7
   Masonry: 890751a1008d6f33a97b032f4ecad4870d7eed3a
   QMUIKit: 525d066263f3b99eed6eca3ecdc0b0ab60df6a66
   YYKit: 7cda43304a8dc3696c449041e2cb3107b4e236e7
 
-PODFILE CHECKSUM: 40e0d45becd043c1ce7f46c32c9782055c7f9d6f
+PODFILE CHECKSUM: 04a1a39c4eec6584c4e22f1d0f38ffc1ff8f473f
 
 COCOAPODS: 1.16.2

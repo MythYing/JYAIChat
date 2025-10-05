@@ -13,16 +13,16 @@
 #import "JYChatMessageUserCell.h"
 #import "JYChatMessageAICell.h"
 #import <JYEventSource/EventSource.h>
+#import <JYNonReusableTableView/JYNonReusableTableView.h>
 
-@interface JYChatViewController () <UITableViewDelegate, UITableViewDataSource>
+@interface JYChatViewController () <JYNonReusableTableViewDelegate, JYNonReusableTableViewDataSource>
 
 @property(nonatomic, strong) JYChatNavigationBar *navBar;
 @property(nonatomic, strong) JYChatInputView *inputView;
-@property(nonatomic, strong) UITableView *messageTableView;
+@property(nonatomic, strong) JYNonReusableTableView *messageTableView;
 
 @property(nonatomic, copy) YYThreadSafeArray *messageList;
 @property(nonatomic, strong) EventSource *eventSource;
-@property(nonatomic, assign) NSTimeInterval lastTimeReloadTableView;
 
 @property(nonatomic, strong) JYMessage *deepseekMessage;
 @property(nonatomic, strong) JYMessage *doubaoMessage;
@@ -76,13 +76,15 @@
         make.bottom.equalTo(self.inputView.mas_top);
     }];
     
+    [self.messageTableView reloadData];
+    
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboardWillShow:) name:UIKeyboardWillShowNotification object:nil];
 }
 
 #pragma mark - Notification
 
 - (void)keyboardWillShow:(NSNotification *)notification {
-    [self.messageTableView scrollToBottomAnimated:YES];
+    [self.messageTableView qmui_scrollToBottomAnimated:YES];
 }
 
 #pragma mark - Action
@@ -96,6 +98,7 @@
     NSString *text = [self.inputView.textView.text stringByTrimmingCharactersInSet:[NSCharacterSet newlineCharacterSet]];
     self.inputView.textView.text = @"";
     [self.inputView.textView.delegate textViewDidChange:self.inputView.textView];
+    [self.inputView.textView endEditing:YES];
     
     JYMessage *userMessage = [[JYMessage alloc] init];
     userMessage.role = JYMessageRoleUser;
@@ -103,11 +106,10 @@
     userMessage.contentId = [NSUUID UUID].UUIDString.lowercaseString;
     userMessage.content = text;
     [self.messageList appendObject:userMessage];
-    
-    [self.messageTableView reloadData];
-    
+    NSIndexPath *indexPath = [NSIndexPath indexPathForRow:self.messageList.count - 1 inSection:0];
+    [self.messageTableView insertRowAtIndexPath:indexPath];
     dispatch_async(dispatch_get_main_queue(), ^{
-        [self.messageTableView scrollToBottomAnimated:YES];
+        [self.messageTableView qmui_scrollToBottomAnimated:NO];
     });
     
     // 消息清空
@@ -169,11 +171,6 @@
         EventSource *eventSource = self.eventSource;
         self.eventSource = nil;
         [eventSource close];
-        
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [self.messageTableView reloadData];
-            [self.messageTableView scrollToBottomAnimated:NO];
-        });
     } else if ([event.event isEqualToString:JYMessageEventMessage]) {
         JYCozeData *data = [JYCozeData modelWithJSON:event.data];
         NSArray<NSString *> *arr = [data.node_title componentsSeparatedByString:@"_"];
@@ -190,6 +187,10 @@
                 newMessage.role = JYMessageRoleAI;
                 newMessage.model = JYMessageModelDeepseek;
                 [self.messageList appendObject:newMessage];
+                NSIndexPath *indexPath = [NSIndexPath indexPathForRow:self.messageList.count - 1 inSection:0];
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self.messageTableView insertRowAtIndexPath:indexPath];
+                });
                 self.deepseekMessage = newMessage;
             }
             aiMessage = self.deepseekMessage;
@@ -199,6 +200,10 @@
                 newMessage.role = JYMessageRoleAI;
                 newMessage.model = JYMessageModelDoubao;
                 [self.messageList appendObject:newMessage];
+                NSIndexPath *indexPath = [NSIndexPath indexPathForRow:self.messageList.count - 1 inSection:0];
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self.messageTableView insertRowAtIndexPath:indexPath];
+                });
                 self.doubaoMessage = newMessage;
             }
             aiMessage = self.doubaoMessage;
@@ -208,6 +213,10 @@
                 newMessage.role = JYMessageRoleAI;
                 newMessage.model = JYMessageModelMixed;
                 [self.messageList appendObject:newMessage];
+                NSIndexPath *indexPath = [NSIndexPath indexPathForRow:self.messageList.count - 1 inSection:0];
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self.messageTableView insertRowAtIndexPath:indexPath];
+                });
                 self.mixedMessage = newMessage;
             }
             aiMessage = self.mixedMessage;
@@ -228,52 +237,61 @@
                     aiMessage.content = [aiMessage.content stringByAppendingString:data.content];
                 }
             }
-        }
-        NSTimeInterval now = NSDate.date.timeIntervalSince1970;
-        if (now - self.lastTimeReloadTableView >= 0.5) {
-            self.lastTimeReloadTableView = now;
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [self.messageTableView reloadData];
-                [self.messageTableView scrollToBottomAnimated:NO];
-            });
+            NSInteger index = [self.messageList indexOfObject:aiMessage];
+            if (index != NSNotFound) {
+                NSIndexPath *indexPath = [NSIndexPath indexPathForRow:index inSection:0];
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self.messageTableView refreshRowAtIndexPath:indexPath];
+                    [self.messageTableView qmui_scrollToBottomAnimated:NO];
+                });
+            }
         }
     }
 }
 
-#pragma mark - UITableViewDelegate & UITableViewDataSource
+#pragma mark - JYNonReusableTableViewDelegate & JYNonReusableTableViewDataSource
 
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+- (NSInteger)numberOfSectionsInTableView:(JYNonReusableTableView *)tableView {
+    return 1;
+}
+
+- (NSInteger)tableView:(JYNonReusableTableView *)tableView numberOfRowsInSection:(NSInteger)section {
     return self.messageList.count;
 }
 
-- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
+- (JYNonReusableTableViewCell *)tableView:(JYNonReusableTableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     JYMessage *message = [self.messageList objectOrNilAtIndex:indexPath.row];
     if (message == nil) {
-        return 0;
+        return [[JYNonReusableTableViewCell alloc] init];
     }
     if (message.role == JYMessageRoleUser) {
-        return [JYChatMessageUserCell cellHeightWithMessage:message];
+        JYChatMessageUserCell *cell = [[JYChatMessageUserCell alloc] init];
+        [cell refreshWithMessage:message];
+        return cell;
     } else if (message.role == JYMessageRoleAI) {
-        return [JYChatMessageAICell cellHeightWithMessage:message];
+        JYChatMessageAICell *cell = [[JYChatMessageAICell alloc] init];
+        [cell refreshWithMessage:message];
+        return cell;
     }
-    return 0;
+    return [[JYNonReusableTableViewCell alloc] init];
 }
 
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+- (void)tableView:(JYNonReusableTableView *)tableView refreshCell:(JYNonReusableTableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath {
     JYMessage *message = [self.messageList objectOrNilAtIndex:indexPath.row];
     if (message == nil) {
-        return nil;
+        return;
     }
     if (message.role == JYMessageRoleUser) {
-        JYChatMessageUserCell *cell = [tableView dequeueReusableCellWithIdentifier:JYChatMessageUserCell.identifier forIndexPath:indexPath];
-        [cell refreshWithMessage:message];
-        return cell;
+        JYChatMessageUserCell *castCell = (JYChatMessageUserCell *)([cell isKindOfClass:JYChatMessageUserCell.class] ? cell : nil);
+        if (cell) {
+            [castCell refreshWithMessage:message];
+        }
     } else if (message.role == JYMessageRoleAI) {
-        JYChatMessageAICell *cell = [tableView dequeueReusableCellWithIdentifier:JYChatMessageAICell.identifier forIndexPath:indexPath];
-        [cell refreshWithMessage:message];
-        return cell;
+        JYChatMessageAICell *castCell = (JYChatMessageAICell *)([cell isKindOfClass:JYChatMessageAICell.class] ? cell : nil);
+        if (cell) {
+            [castCell refreshWithMessage:message];
+        }
     }
-    return nil;
 }
 
 #pragma mark - Getter
@@ -304,21 +322,15 @@
     return _inputView;
 }
 
-- (UITableView *)messageTableView {
+- (JYNonReusableTableView *)messageTableView {
     if (_messageTableView == nil) {
-        UITableView *tableView = [[UITableView alloc] init];
+        JYNonReusableTableView *tableView = [[JYNonReusableTableView alloc] init];
         tableView.backgroundColor = UIColor.whiteColor;
         tableView.delegate = self;
         tableView.dataSource = self;
-        tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
         tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
         tableView.contentInset = UIEdgeInsetsMake(0, 0, 24, 0);
         tableView.bounces = YES;
-        tableView.estimatedRowHeight = 0;
-        tableView.estimatedSectionHeaderHeight = 0;
-        tableView.estimatedSectionFooterHeight = 0;
-        [tableView registerClass:JYChatMessageUserCell.class forCellReuseIdentifier:JYChatMessageUserCell.identifier];
-        [tableView registerClass:JYChatMessageAICell.class forCellReuseIdentifier:JYChatMessageAICell.identifier];
         _messageTableView = tableView;
     }
     return _messageTableView;

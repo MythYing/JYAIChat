@@ -16,10 +16,6 @@ target 'AIChat' do
       :git => 'https://github.com/AFNetworking/AFNetworking.git',
       :tag => '4.0.1'
 
-    pod 'EventSource',
-      :git => 'https://github.com/neilco/EventSource.git',
-      :tag => '1.0.4'
-
     pod 'CDMarkdownKit',
       :git => 'https://github.com/chrisdhaan/CDMarkdownKit.git',
       :tag => '2.5.1'
@@ -32,4 +28,19 @@ target 'AIChat' do
       :git => 'https://github.com/QMUI/LookinServer.git',
       :tag => '1.0.5',
       :configurations => ['Debug']
+
+    pod 'JYEventSource',
+      :git => 'https://github.com/MythYing/JYEventSource.git',
+      :tag => '2.0.0'
+
+    pod 'JYNonReusableTableView',
+      :git => 'https://github.com/MythYing/JYNonReusableTableView.git',
+      :tag => '1.0.0'
+
+#    pod 'JYEventSource',
+#      :path => './../JYEventSource'
+#
+#    pod 'JYNonReusableTableView',
+#      :path => './../JYNonReusableTableView'
+
 end

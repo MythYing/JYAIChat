@@ -19,8 +19,9 @@
 
 #pragma mark - Init
 
-- (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier {
-    if (self = [super initWithStyle:style reuseIdentifier:reuseIdentifier]) {
+- (instancetype)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
+    if (self) {
         [self setupUI];
     }
     return self;
@@ -47,23 +48,7 @@
 
 - (void)refreshWithMessage:(JYMessage *)message {
     self.contentLabel.text = message.content;
-}
-
-#pragma mark - Class Method
-
-static JYChatMessageUserCell *calculateCell;
-
-+ (CGFloat)cellHeightWithMessage:(JYMessage *)message {
-    if (calculateCell == nil) {
-        calculateCell = [[JYChatMessageUserCell alloc] init];
-    }
-    [calculateCell refreshWithMessage:message];
-    CGFloat height = [calculateCell.contentView systemLayoutSizeFittingSize:CGSizeMake(SCREEN_WIDTH, CGFLOAT_MAX) withHorizontalFittingPriority:UILayoutPriorityRequired verticalFittingPriority:UILayoutPriorityFittingSizeLevel].height;
-    return height;
-}
-
-+ (NSString *)identifier {
-    return @"JYChatMessageUserCell";
+    [self setNeedsLayout];
 }
 
 #pragma mark - Getter

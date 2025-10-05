@@ -7,12 +7,9 @@
 
 #import <UIKit/UIKit.h>
 #import "JYModel.h"
+#import <JYNonReusableTableView/JYNonReusableTableView.h>
 
-@interface JYChatMessageAICell : UITableViewCell
-
-@property(nonatomic, copy, class, readonly, nonnull) NSString *identifier;
-
-+ (CGFloat)cellHeightWithMessage:(JYMessage *_Nonnull)message;
+@interface JYChatMessageAICell : JYNonReusableTableViewCell
 
 - (void)refreshWithMessage:(JYMessage *_Nonnull)message;
 

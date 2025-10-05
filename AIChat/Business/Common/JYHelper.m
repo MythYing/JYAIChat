@@ -23,7 +23,7 @@
 }
 
 + (NSString *)workflowVersion {
-    return @"v0.0.3";
+    return @"v0.0.4";
 }
 
 @end
