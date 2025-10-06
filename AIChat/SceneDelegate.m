@@ -21,10 +21,16 @@
     if (windowScene != nil) {
         self.window = [[UIWindow alloc] initWithWindowScene:windowScene];
         UIApplication.sharedApplication.delegate.window = self.window;
-        JYChatViewController *chatVC = [[JYChatViewController alloc] init];
-        UINavigationController *navVC = [[UINavigationController alloc] initWithRootViewController:chatVC];
-        self.window.rootViewController = navVC;
+        UIStoryboard *launchStoryboard = [UIStoryboard storyboardWithName:@"LaunchScreen" bundle:nil];
+        UIViewController *launchVC = [launchStoryboard instantiateInitialViewController];
+        self.window.rootViewController = launchVC;
         [self.window makeKeyAndVisible];
+        
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            JYChatViewController *chatVC = [[JYChatViewController alloc] init];
+            UINavigationController *navVC = [[UINavigationController alloc] initWithRootViewController:chatVC];
+            self.window.rootViewController = navVC;
+        });
     }
 }
 

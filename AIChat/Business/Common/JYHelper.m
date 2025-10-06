@@ -77,7 +77,7 @@
 }
 
 + (UIColor *)highlightColor {
-    return [UIColor colorWithRGB:0x629760];
+    return [UIColor colorWithRGB:0x772BFD];
 }
 
 + (UIColor *)separatorLineColor {

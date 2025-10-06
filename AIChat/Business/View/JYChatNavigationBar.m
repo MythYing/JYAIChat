@@ -11,9 +11,11 @@
 @interface JYChatNavigationBar ()
 
 @property(nonatomic, strong) UIView *topPlaceholderView;
-@property (nonatomic, strong) UIView *navView;
-@property (nonatomic, strong) UILabel *titleLabel;
-@property (nonatomic, strong) UIImageView *newChatImageView;
+@property(nonatomic, strong) UIView *navView;
+@property(nonatomic, strong) UIView *titleView;
+@property(nonatomic, strong) UILabel *titleLabel;
+@property(nonatomic, strong) UILabel *subtitleLabel;
+@property(nonatomic, strong) UIImageView *newChatImageView;
 @property(nonatomic, strong) UIView *bottomLineView;
 
 @property(nonatomic, assign) CGFloat topPlaceholderHeight;
@@ -39,7 +41,9 @@
     
     [self addSubview:self.topPlaceholderView];
     [self addSubview:self.navView];
-    [self.navView addSubview:self.titleLabel];
+    [self.navView addSubview:self.titleView];
+    [self.titleView addSubview:self.titleLabel];
+    [self.titleView addSubview:self.subtitleLabel];
     [self.navView addSubview:self.newChatImageView];
     [self.navView addSubview:self.bottomLineView];
     
@@ -52,9 +56,18 @@
         make.height.equalTo(@44);
         make.leading.trailing.bottom.equalTo(self);
     }];
-    [self.titleLabel mas_makeConstraints:^(MASConstraintMaker *make) {
+    [self.titleView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.leading.equalTo(self.navView).inset(16);
         make.centerY.equalTo(self.navView);
+    }];
+    [self.titleLabel mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.leading.equalTo(self.titleView);
+        make.trailing.lessThanOrEqualTo(self.titleView);
+    }];
+    [self.subtitleLabel mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.equalTo(self.titleLabel.mas_bottom).offset(2);
+        make.bottom.leading.equalTo(self.titleView);
+        make.trailing.lessThanOrEqualTo(self.titleView);
     }];
     [self.newChatImageView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.width.height.equalTo(@44);
@@ -104,16 +117,36 @@
     return _navView;
 }
 
-- (UIView *)titleLabel {
+- (UIView *)titleView {
+    if (_titleView == nil) {
+        UIView *view = [[UIView alloc] init];
+        _titleView = view;
+    }
+    return _titleView;
+}
+
+- (UILabel *)titleLabel {
     if (_titleLabel == nil) {
         UILabel *label = [[UILabel alloc] init];
         label.text = @"超级AI助手";
-        label.font = [UIFont qmui_mediumSystemFontOfSize:16];
+        label.font = [UIFont qmui_mediumSystemFontOfSize:14];
         label.textColor = UIColor.firstTextColor;
         label.numberOfLines = 1;
         _titleLabel = label;
     }
     return _titleLabel;
+}
+
+- (UILabel *)subtitleLabel {
+    if (_subtitleLabel == nil) {
+        UILabel *label = [[UILabel alloc] init];
+        label.text = @"全网搜索+多模型回答";
+        label.font = [UIFont systemFontOfSize:12];
+        label.textColor = UIColor.thirdTextColor;
+        label.numberOfLines = 1;
+        _subtitleLabel = label;
+    }
+    return _subtitleLabel;
 }
 
 - (UIImageView *)newChatImageView {
