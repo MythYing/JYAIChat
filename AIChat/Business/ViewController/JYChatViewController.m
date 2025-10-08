@@ -12,6 +12,7 @@
 #import "JYChatInputView.h"
 #import "JYChatMessageUserCell.h"
 #import "JYChatMessageAICell.h"
+#import "JYChatMessageSearchCell.h"
 #import <JYEventSource/EventSource.h>
 #import <JYNonReusableTableView/JYNonReusableTableView.h>
 
@@ -24,9 +25,17 @@
 @property(nonatomic, copy) YYThreadSafeArray *messageList;
 @property(nonatomic, strong) EventSource *eventSource;
 
-@property(nonatomic, strong) JYMessage *deepseekMessage;
-@property(nonatomic, strong) JYMessage *doubaoMessage;
-@property(nonatomic, strong) JYMessage *mixedMessage;
+@property(nonatomic, assign) BOOL didFirstViewDidAppear;
+
+@property(nonatomic, assign) JYMessageStatus status;
+@property(nonatomic, copy) NSString *statusString;
+@property(nonatomic, copy) NSString *loadingString;
+
+@property(nonatomic, strong) JYMessageSearch *toutiaoSearchMessage;
+
+@property(nonatomic, strong) JYMessageAI *deepseekAIMessage;
+@property(nonatomic, strong) JYMessageAI *doubaoAIMessage;
+@property(nonatomic, strong) JYMessageAI *mixedAIMessage;
 
 @end
 
@@ -57,6 +66,15 @@
     [self.navigationController setNavigationBarHidden:true animated:false];
 }
 
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    
+    if (!self.didFirstViewDidAppear) {
+        self.didFirstViewDidAppear = YES;
+        [self.inputView.textView becomeFirstResponder];
+    }
+}
+
 - (void)setupUI {
     self.view.backgroundColor = UIColor.whiteColor;
     
@@ -77,6 +95,8 @@
     }];
     
     [self.messageTableView reloadData];
+    
+    [self setStatus:JYMessageStatusNone prefix:@""];
     
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboardWillShow:) name:UIKeyboardWillShowNotification object:nil];
 }
@@ -99,23 +119,21 @@
     self.inputView.textView.text = @"";
     [self.inputView.textView.delegate textViewDidChange:self.inputView.textView];
     [self.inputView.textView endEditing:YES];
+    self.inputView.userInteractionEnabled = NO;
     
-    JYMessage *userMessage = [[JYMessage alloc] init];
-    userMessage.role = JYMessageRoleUser;
-    userMessage.model = JYMessageModelNone;
+    JYMessageUser *userMessage = [[JYMessageUser alloc] init];
     userMessage.contentId = [NSUUID UUID].UUIDString.lowercaseString;
     userMessage.content = text;
     [self.messageList appendObject:userMessage];
     NSIndexPath *indexPath = [NSIndexPath indexPathForRow:self.messageList.count - 1 inSection:0];
     [self.messageTableView insertRowAtIndexPath:indexPath];
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self.messageTableView qmui_scrollToBottomAnimated:NO];
-    });
+    [self.messageTableView qmui_scrollToBottomAnimated:YES];
+    [self setStatus:JYMessageStatusWaiting prefix:@""];
     
     // 消息清空
-    self.deepseekMessage = nil;
-    self.doubaoMessage = nil;
-    self.mixedMessage = nil;
+    self.deepseekAIMessage = nil;
+    self.doubaoAIMessage = nil;
+    self.mixedAIMessage = nil;
     
     if (self.eventSource) {
         EventSource *eventSource = self.eventSource;
@@ -134,14 +152,9 @@
         @"workflow_id": JYHelper.workflowId,
         @"workflow_version": JYHelper.workflowVersion,
         @"parameters": @{
-            @"deepThinking": @(self.inputView.deepThinkingOptionView.isSelected),
-            @"modelDeepseek": @(YES),
-            @"modelDoubao": @(YES),
-            @"modelHunyuan": @(YES),
             @"query": text ?: @"",
-            @"searchBaidu": @(YES),
-            @"searchSougou": @(YES),
-            @"searchToutiao": @(YES),
+            @"enableDeepThinking": @(self.inputView.deepThinkingOptionView.isSelected),
+            @"enableOnlineSearch": @(self.inputView.onlineSearchOptionView.isSelected),
         }
     }.jsonStringEncoded.dataValue;
     self.eventSource = [[EventSource alloc] initWithConfig:config];
@@ -163,90 +176,220 @@
 - (void)onSSEMessage:(EventSourceEvent *)event {
     NSLog(@"[jy] SSE Message: \n event.id: %@ \n event.event: %@ \n event.data: %@", event.id, event.event, event.data);
     if ([event.event isEqualToString:JYMessageEventDone]) {
+        [self setStatus:JYMessageStatusDone prefix:@""];
         // 消息清空
-        self.deepseekMessage = nil;
-        self.doubaoMessage = nil;
-        self.mixedMessage = nil;
+        self.deepseekAIMessage = nil;
+        self.doubaoAIMessage = nil;
+        self.mixedAIMessage = nil;
         
         EventSource *eventSource = self.eventSource;
         self.eventSource = nil;
         [eventSource close];
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.messageTableView qmui_scrollToBottomAnimated:NO];
+        });
     } else if ([event.event isEqualToString:JYMessageEventMessage]) {
         JYCozeData *data = [JYCozeData modelWithJSON:event.data];
         NSArray<NSString *> *arr = [data.node_title componentsSeparatedByString:@"_"];
-        if (arr.count != 3) {
-            return;
-        }
-        NSString *model = arr[0];
-        BOOL isContent = [arr[2] isEqualToString:JYMessageOutputContent];
-        
-        JYMessage *aiMessage;
-        if ([model isEqualToString:JYMessageModelNameDeepseek]) {
-            if (self.deepseekMessage == nil) {
-                JYMessage *newMessage = [[JYMessage alloc] init];
-                newMessage.role = JYMessageRoleAI;
-                newMessage.model = JYMessageModelDeepseek;
+        if (arr.count == 2 && [arr[0] isEqualToString:JYMessageTypeNameSearch]) {
+            JYMessageSearchEngine engine = [JYMessageSearch searchEngineFromEngineName:arr[1]];
+            
+            JYMessageSearch *searchMessage;
+            JYMessageSearch *newMessage;
+            switch (engine) {
+                case JYMessageSearchEngineToutiao: {
+                    if (self.toutiaoSearchMessage == nil) {
+                        newMessage = [[JYMessageSearch alloc] init];
+                        newMessage.engine = JYMessageSearchEngineToutiao;
+                        self.toutiaoSearchMessage = newMessage;
+                    }
+                    searchMessage = self.toutiaoSearchMessage;
+                    break;
+                }
+                default: {
+                    break;
+                }
+            }
+            if (newMessage) {
+                [self.messageList appendObject:newMessage];
+                
+                NSString *prefix = [JYMessageSearch engineDescriptionWithSearchEngine:newMessage.engine];
+                [self setStatus:JYMessageStatusSearching prefix:prefix];
+                
+                NSIndexPath *indexPath = [NSIndexPath indexPathForRow:self.messageList.count - 1 inSection:0];
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self.messageTableView insertRowAtIndexPath:indexPath];
+                });
+            }
+            if (searchMessage) {
+                JYMessageSearchResult *result = [JYMessageSearchResult modelWithJSON:data.content];
+                [searchMessage appendResult:result];
+                NSInteger index = [self.messageList indexOfObject:searchMessage];
+                if (index != NSNotFound) {
+                    NSIndexPath *indexPath = [NSIndexPath indexPathForRow:index inSection:0];
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [self.messageTableView refreshRowAtIndexPath:indexPath];
+                        [self.messageTableView qmui_scrollToBottomAnimated:NO];
+                    });
+                }
+            }
+        } else if (arr.count == 4 || [arr[0] isEqualToString:JYMessageTypeNameAI]) {
+            JYMessageAIModel aiModel = [JYMessageAI aiModelFromModelName:arr[2]];
+            BOOL isContent = [arr[3] isEqualToString:JYMessageOutputContent];
+            
+            JYMessageAI *aiMessage;
+            JYMessageAI *newMessage;
+            switch (aiModel) {
+                case JYMessageAIModelMixed: {
+                    if (self.mixedAIMessage == nil) {
+                        newMessage = [[JYMessageAI alloc] init];
+                        newMessage.model = JYMessageAIModelMixed;
+                        self.mixedAIMessage = newMessage;
+                    }
+                    aiMessage = self.mixedAIMessage;
+                    break;
+                }
+                case JYMessageAIModelDeepseek: {
+                    if (self.deepseekAIMessage == nil) {
+                        newMessage = [[JYMessageAI alloc] init];
+                        newMessage.model = JYMessageAIModelDeepseek;
+                        self.deepseekAIMessage = newMessage;
+                    }
+                    aiMessage = self.deepseekAIMessage;
+                    break;
+                }
+                case JYMessageAIModelDoubao: {
+                    if (self.doubaoAIMessage == nil) {
+                        newMessage = [[JYMessageAI alloc] init];
+                        newMessage.model = JYMessageAIModelDoubao;
+                        self.doubaoAIMessage = newMessage;
+                    }
+                    aiMessage = self.doubaoAIMessage;
+                    break;
+                }
+                default:
+                    break;
+            }
+            if (newMessage) {
                 [self.messageList appendObject:newMessage];
                 NSIndexPath *indexPath = [NSIndexPath indexPathForRow:self.messageList.count - 1 inSection:0];
                 dispatch_async(dispatch_get_main_queue(), ^{
                     [self.messageTableView insertRowAtIndexPath:indexPath];
                 });
-                self.deepseekMessage = newMessage;
             }
-            aiMessage = self.deepseekMessage;
-        } else if ([model isEqualToString:JYMessageModelNameDoubao]) {
-            if (self.doubaoMessage == nil) {
-                JYMessage *newMessage = [[JYMessage alloc] init];
-                newMessage.role = JYMessageRoleAI;
-                newMessage.model = JYMessageModelDoubao;
-                [self.messageList appendObject:newMessage];
-                NSIndexPath *indexPath = [NSIndexPath indexPathForRow:self.messageList.count - 1 inSection:0];
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    [self.messageTableView insertRowAtIndexPath:indexPath];
-                });
-                self.doubaoMessage = newMessage;
-            }
-            aiMessage = self.doubaoMessage;
-        } else if ([model isEqualToString:JYMessageModelNameMixed]) {
-            if (self.mixedMessage == nil) {
-                JYMessage *newMessage = [[JYMessage alloc] init];
-                newMessage.role = JYMessageRoleAI;
-                newMessage.model = JYMessageModelMixed;
-                [self.messageList appendObject:newMessage];
-                NSIndexPath *indexPath = [NSIndexPath indexPathForRow:self.messageList.count - 1 inSection:0];
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    [self.messageTableView insertRowAtIndexPath:indexPath];
-                });
-                self.mixedMessage = newMessage;
-            }
-            aiMessage = self.mixedMessage;
-        }
-        if (aiMessage) {
-            if (!isContent) {
-                if (aiMessage.thoughtId.length == 0) {
-                    aiMessage.thoughtId = data.node_execute_uuid;
+            if (aiMessage) {
+                if (!isContent) {
+                    BOOL isBegin = aiMessage.thought.length == 0;
+                    BOOL isEnd = data.node_is_finish;
+                    if (aiMessage.thoughtId.length == 0) {
+                        aiMessage.thoughtId = data.node_execute_uuid;
+                        NSString *prefix = [JYMessageAI modelDescriptionWithAIModel:aiMessage.model];
+                        [self setStatus:JYMessageStatusAIThinking prefix:prefix];
+                    }
+                    if ([data.node_execute_uuid isEqualToString:aiMessage.thoughtId]) {
+                        NSString *thought = data.content ?: @"";
+                        if (isBegin) {
+                            thought = [thought stringByTrimmingLeftCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                        }
+                        if (isEnd) {
+                            thought = [thought stringByTrimmingRightCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                        }
+                        [aiMessage appendThought:thought];
+                    }
+                } else {
+                    BOOL isBegin = aiMessage.content.length == 0;
+                    BOOL isEnd = data.node_is_finish;
+                    if (aiMessage.contentId.length == 0) {
+                        aiMessage.contentId = data.node_execute_uuid;
+                        NSString *prefix = [JYMessageAI modelDescriptionWithAIModel:aiMessage.model];
+                        [self setStatus:JYMessageStatusAIReplying prefix:prefix];
+                    }
+                    if ([data.node_execute_uuid isEqualToString:aiMessage.contentId]) {
+                        NSString *content = data.content ?: @"";
+                        if (isBegin) {
+                            content = [content stringByTrimmingLeftCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                        }
+                        if (isEnd) {
+                            content = [content stringByTrimmingRightCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                        }
+                        [aiMessage appendContent:content];
+                    }
                 }
-                if ([data.node_execute_uuid isEqualToString:aiMessage.thoughtId]) {
-                    aiMessage.thought = [aiMessage.thought stringByAppendingString:data.content];
+                NSInteger index = [self.messageList indexOfObject:aiMessage];
+                if (index != NSNotFound) {
+                    NSIndexPath *indexPath = [NSIndexPath indexPathForRow:index inSection:0];
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [self.messageTableView refreshRowAtIndexPath:indexPath];
+                        [self.messageTableView qmui_scrollToBottomAnimated:NO];
+                    });
                 }
-            } else {
-                if (aiMessage.contentId.length == 0) {
-                    aiMessage.contentId = data.node_execute_uuid;
-                }
-                if ([data.node_execute_uuid isEqualToString:aiMessage.contentId]) {
-                    aiMessage.content = [aiMessage.content stringByAppendingString:data.content];
-                }
-            }
-            NSInteger index = [self.messageList indexOfObject:aiMessage];
-            if (index != NSNotFound) {
-                NSIndexPath *indexPath = [NSIndexPath indexPathForRow:index inSection:0];
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    [self.messageTableView refreshRowAtIndexPath:indexPath];
-                    [self.messageTableView qmui_scrollToBottomAnimated:NO];
-                });
             }
         }
     }
+}
+
+#pragma mark - Status Loading
+
+- (void)setStatus:(JYMessageStatus)status prefix:(NSString *)prefix {
+    _status = status;
+    switch (status) {
+        case JYMessageStatusNone: {
+            self.statusString = @"请输入文字进行提问";
+            [self updatePlaceholderWithEnableLoading:NO];
+            break;
+        }
+        case JYMessageStatusWaiting: {
+            self.statusString = @"等待响应中";
+            [self updatePlaceholderWithEnableLoading:YES];
+            break;
+        }
+        case JYMessageStatusSearching: {
+            self.statusString = [NSString stringWithFormat:@"%@ 搜索中", prefix ?: @""];
+            [self updatePlaceholderWithEnableLoading:YES];
+            break;
+        }
+        case JYMessageStatusAIThinking: {
+            self.statusString = [NSString stringWithFormat:@"%@ 思考中", prefix ?: @""];
+            [self updatePlaceholderWithEnableLoading:YES];
+            break;
+        }
+        case JYMessageStatusAIReplying: {
+            self.statusString = [NSString stringWithFormat:@"%@ 生成中", prefix ?: @""];
+            [self updatePlaceholderWithEnableLoading:YES];
+            break;
+        }
+        case JYMessageStatusDone: {
+            self.statusString = @"已完成作答，点击右上角开启新提问";
+            [self updatePlaceholderWithEnableLoading:NO];
+            break;
+        }
+    }
+}
+
+- (void)updatePlaceholderWithEnableLoading:(BOOL)enableLoading {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        self.loadingString = @"";
+        self.inputView.placeholderLabel.text = [NSString stringWithFormat:@"%@%@", self.statusString, self.loadingString];
+        if (enableLoading) {
+            [self startLoadingWithStatusString:self.statusString];
+        }
+    });
+}
+    
+- (void)startLoadingWithStatusString: (NSString *)statusString {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (![statusString isEqualToString:self.statusString]) {
+            return;
+        }
+        if (self.loadingString.length < 3) {
+            self.loadingString = [self.loadingString stringByAppendingString:@"."];
+        } else {
+            self.loadingString = @"";
+        }
+        self.inputView.placeholderLabel.text = [NSString stringWithFormat:@"%@%@", statusString, self.loadingString];
+        [self startLoadingWithStatusString:statusString];
+    });
 }
 
 #pragma mark - JYNonReusableTableViewDelegate & JYNonReusableTableViewDataSource
@@ -264,16 +407,29 @@
     if (message == nil) {
         return [[JYNonReusableTableViewCell alloc] init];
     }
-    if (message.role == JYMessageRoleUser) {
-        JYChatMessageUserCell *cell = [[JYChatMessageUserCell alloc] init];
-        [cell refreshWithMessage:message];
-        return cell;
-    } else if (message.role == JYMessageRoleAI) {
-        JYChatMessageAICell *cell = [[JYChatMessageAICell alloc] init];
-        [cell refreshWithMessage:message];
-        return cell;
+    switch (message.type) {
+        case JYMessageTypeUser: {
+            JYMessageUser *castMessage = JY_SAFE_CAST(message, JYMessageUser);
+            JYChatMessageUserCell *cell = [[JYChatMessageUserCell alloc] init];
+            [cell refreshWithMessage:castMessage];
+            return cell;
+        }
+        case JYMessageTypeAI: {
+            JYMessageAI *castMessage = JY_SAFE_CAST(message, JYMessageAI);
+            JYChatMessageAICell *cell = [[JYChatMessageAICell alloc] init];
+            [cell refreshWithMessage:castMessage];
+            return cell;
+        }
+        case JYMessageTypeSearch: {
+            JYMessageSearch *castMessage = JY_SAFE_CAST(message, JYMessageSearch);
+            JYChatMessageSearchCell *cell = [[JYChatMessageSearchCell alloc] init];
+            [cell refreshWithMessage:castMessage];
+            return cell;
+        }
+        case JYMessageTypeUnknown: {
+            return [[JYNonReusableTableViewCell alloc] init];
+        }
     }
-    return [[JYNonReusableTableViewCell alloc] init];
 }
 
 - (void)tableView:(JYNonReusableTableView *)tableView refreshCell:(JYNonReusableTableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -281,15 +437,33 @@
     if (message == nil) {
         return;
     }
-    if (message.role == JYMessageRoleUser) {
-        JYChatMessageUserCell *castCell = (JYChatMessageUserCell *)([cell isKindOfClass:JYChatMessageUserCell.class] ? cell : nil);
-        if (cell) {
-            [castCell refreshWithMessage:message];
+    switch (message.type) {
+        case JYMessageTypeUser: {
+            JYMessageUser *castMessage = JY_SAFE_CAST(message, JYMessageUser);
+            JYChatMessageUserCell *castCell = JY_SAFE_CAST(cell, JYChatMessageUserCell);
+            if (castMessage && castCell) {
+                [castCell refreshWithMessage:castMessage];
+            }
+            break;
         }
-    } else if (message.role == JYMessageRoleAI) {
-        JYChatMessageAICell *castCell = (JYChatMessageAICell *)([cell isKindOfClass:JYChatMessageAICell.class] ? cell : nil);
-        if (cell) {
-            [castCell refreshWithMessage:message];
+        case JYMessageTypeAI: {
+            JYMessageAI *castMessage = JY_SAFE_CAST(message, JYMessageAI);
+            JYChatMessageAICell *castCell = JY_SAFE_CAST(cell, JYChatMessageAICell);
+            if (castMessage && castCell) {
+                [castCell refreshWithMessage:castMessage];
+            }
+            break;
+        }
+        case JYMessageTypeSearch: {
+            JYMessageSearch *castMessage = JY_SAFE_CAST(message, JYMessageSearch);
+            JYChatMessageSearchCell *castCell = JY_SAFE_CAST(cell, JYChatMessageSearchCell);
+            if (castMessage && castCell) {
+                [castCell refreshWithMessage:castMessage];
+            }
+            break;
+        }
+        case JYMessageTypeUnknown: {
+            break;
         }
     }
 }

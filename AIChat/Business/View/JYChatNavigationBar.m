@@ -53,7 +53,7 @@
     }];
     [self.navView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.equalTo(self.topPlaceholderView.mas_bottom);
-        make.height.equalTo(@44);
+        make.height.equalTo(@48);
         make.leading.trailing.bottom.equalTo(self);
     }];
     [self.titleView mas_makeConstraints:^(MASConstraintMaker *make) {

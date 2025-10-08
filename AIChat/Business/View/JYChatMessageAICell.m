@@ -11,6 +11,9 @@
 
 @interface JYChatMessageAICell () <JYSegmentedLabelDelegate>
 
+@property(nonatomic, strong) UIImageView *iconImageView;
+@property(nonatomic, strong) UILabel *titleLabel;
+
 @property(nonatomic, strong) UIView *thoughtLineView;
 @property(nonatomic, strong) JYSegmentedLabel *thoughtLabel;
 @property(nonatomic, strong) JYSegmentedLabel *contentLabel;
@@ -32,12 +35,23 @@
 - (void)setupUI {
     self.contentView.backgroundColor = UIColor.whiteColor;
     
+    [self.contentView addSubview:self.iconImageView];
+    [self.contentView addSubview:self.titleLabel];
     [self.contentView addSubview:self.thoughtLineView];
     [self.contentView addSubview:self.thoughtLabel];
     [self.contentView addSubview:self.contentLabel];
     
+    [self.iconImageView mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.width.height.equalTo(@24);
+        make.top.leading.equalTo(self.contentView).inset(24);
+    }];
+    [self.titleLabel mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.bottom.equalTo(self.iconImageView);
+        make.leading.equalTo(self.iconImageView.mas_trailing).offset(4);
+        make.trailing.equalTo(self.contentView).inset(24);
+    }];
     [self.thoughtLabel mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.top.equalTo(self.contentView).inset(24);
+        make.top.equalTo(self.iconImageView.mas_bottom).offset(12);
         make.leading.trailing.equalTo(self.contentView).inset(36);
     }];
     [self.thoughtLineView mas_makeConstraints:^(MASConstraintMaker *make) {
@@ -54,7 +68,26 @@
 
 #pragma mark - Data
 
-- (void)refreshWithMessage:(JYMessage *)message {
+- (void)refreshWithMessage:(JYMessageAI *)message {
+    switch (message.model) {
+        case JYMessageAIModelMixed:
+            self.iconImageView.image = [UIImage imageNamed:@"model_mixed"];
+            break;
+        case JYMessageAIModelDeepseek:
+            self.iconImageView.image = [UIImage imageNamed:@"model_deepseek"];
+            break;
+        case JYMessageAIModelDoubao:
+            self.iconImageView.image = [UIImage imageNamed:@"model_doubao"];
+            break;
+        case JYMessageAIModelHunyuan:
+            self.iconImageView.image = [UIImage imageNamed:@"model_hunyuan"];
+            break;
+        default:
+            break;
+    }
+    NSString *modelDescription = [JYMessageAI modelDescriptionWithAIModel:message.model];
+    self.titleLabel.text = [NSString stringWithFormat:@"%@ 生成结果：", modelDescription];
+    
     if ([message.thought hasPrefix:self.thoughtLabel.text] || self.thoughtLabel.text.length == 0) {
         NSString *newText = [message.thought substringFromIndex:self.thoughtLabel.text.length];
         [self.thoughtLabel appendText:newText];
@@ -81,6 +114,25 @@
 }
 
 #pragma mark - Getter
+
+- (UIImageView *)iconImageView {
+    if (_iconImageView == nil) {
+        UIImageView *imageView = [[UIImageView alloc] init];
+        imageView.tintColor = UIColor.firstTextColor;
+        _iconImageView = imageView;
+    }
+    return _iconImageView;
+}
+
+- (UILabel *)titleLabel {
+    if (_titleLabel == nil) {
+        UILabel *label = [[UILabel alloc] init];
+        label.font = [UIFont qmui_mediumSystemFontOfSize:16];
+        label.textColor = UIColor.firstTextColor;
+        _titleLabel = label;
+    }
+    return _titleLabel;
+}
 
 - (UIView *)thoughtLineView {
     if (_thoughtLineView == nil) {

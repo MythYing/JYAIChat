@@ -11,6 +11,7 @@
 @interface JYChatInputView : UIView
 
 @property(nonatomic, strong, nonnull) UITextView *textView;
+@property(nonatomic, strong, nonnull) UILabel *placeholderLabel;
 @property(nonatomic, strong, nonnull) JYChatInputOptionView *deepThinkingOptionView;
 @property(nonatomic, strong, nonnull) JYChatInputOptionView *onlineSearchOptionView;
 

@@ -23,7 +23,7 @@
 }
 
 + (NSString *)workflowVersion {
-    return @"v0.0.4";
+    return @"v0.0.6";
 }
 
 @end
@@ -82,6 +82,41 @@
 
 + (UIColor *)separatorLineColor {
     return [UIColor colorWithRGB:0xEBEBEB];
+}
+
+@end
+
+@implementation NSString (JYExtension)
+
+- (NSString *)stringByTrimmingLeftCharactersInSet:(NSCharacterSet *)characterSet {
+    NSUInteger length = [self length];
+    if (length == 0) {
+        return self;
+    }
+    
+    unichar charBuffer[length];
+    [self getCharacters:charBuffer range:NSMakeRange(0, length)];
+
+    NSUInteger location = 0;
+    while (location < length && [characterSet characterIsMember:charBuffer[location]]) {
+        location++;
+    }
+    return [self substringWithRange:NSMakeRange(location, length - location)];
+}
+
+- (NSString *)stringByTrimmingRightCharactersInSet:(NSCharacterSet *)characterSet {
+    NSUInteger length = [self length];
+    if (length == 0) {
+        return self;
+    }
+    
+    unichar charBuffer[length];
+    [self getCharacters:charBuffer range:NSMakeRange(0, length)];
+
+    while (length > 0 && [characterSet characterIsMember:charBuffer[length - 1]]) {
+        length--;
+    }
+    return [self substringWithRange:NSMakeRange(0, length)];
 }
 
 @end

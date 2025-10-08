@@ -34,3 +34,10 @@
 + (UIColor *_Nonnull)separatorLineColor;
 
 @end
+
+@interface NSString (JYExtension)
+
+- (NSString *_Nonnull)stringByTrimmingLeftCharactersInSet:(NSCharacterSet *_Nonnull)characterSet;
+- (NSString *_Nonnull)stringByTrimmingRightCharactersInSet:(NSCharacterSet *_Nonnull)characterSet;
+
+@end

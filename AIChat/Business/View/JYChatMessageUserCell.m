@@ -46,7 +46,7 @@
 
 #pragma mark - Data
 
-- (void)refreshWithMessage:(JYMessage *)message {
+- (void)refreshWithMessage:(JYMessageUser *)message {
     self.contentLabel.text = message.content;
     [self setNeedsLayout];
 }

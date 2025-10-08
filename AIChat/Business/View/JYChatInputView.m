@@ -11,7 +11,6 @@
 @interface JYChatInputView () <UITextViewDelegate>
 
 @property(nonatomic, strong) UIView *topLineView;
-@property(nonatomic, strong) UILabel *placeholderLabel;
 @property(nonatomic, strong) UIView *optionListView;
 @property(nonatomic, strong) UIView *keyboardPlaceholderView;
 @property(nonatomic, strong) UIView *bottomPlaceholderView;
@@ -217,7 +216,7 @@
         UILabel *label = [[UILabel alloc] init];
         label.font = [UIFont systemFontOfSize:14];
         label.textColor = UIColor.placeholderColor;
-        label.text = @"请输入文字进行提问";
+        label.text = @"";
         _placeholderLabel = label;
     }
     return _placeholderLabel;
