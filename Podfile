@@ -16,9 +16,20 @@ target 'AIChat' do
       :git => 'https://github.com/AFNetworking/AFNetworking.git',
       :tag => '4.0.1'
 
-    pod 'CDMarkdownKit',
-      :git => 'https://github.com/chrisdhaan/CDMarkdownKit.git',
-      :tag => '2.5.1'
+#    pod 'NORMarkdownParser',
+#      :git => 'https://github.com/MythYing/NORMarkdownParser.git',
+#      :tag => '1.0.0',
+#      :submodules => true
+
+    # 问题：会将非链接识别为链接
+#    pod 'XNGMarkdownParser',
+#      :git => 'https://github.com/xing/XNGMarkdownParser.git',
+#      :tag => '0.3.2'
+
+    # 问题：Swift，不支持ObjC
+#    pod 'MarkdownTextView',
+#      :git => 'https://github.com/indragiek/MarkdownTextView.git',
+#      :tag => '1.0.1'
 
     pod 'QMUIKit',
       :git => 'https://github.com/Tencent/QMUI_iOS.git',
@@ -37,10 +48,16 @@ target 'AIChat' do
       :git => 'https://github.com/MythYing/JYNonReusableTableView.git',
       :tag => '1.0.0'
 
+    pod 'JYSegmentedLabel',
+      :path => './../JYSegmentedLabel'
+
 #    pod 'JYEventSource',
 #      :path => './../JYEventSource'
-#
+
 #    pod 'JYNonReusableTableView',
 #      :path => './../JYNonReusableTableView'
+
+#    pod 'NORMarkdownParser',
+#      :path => './../NORMarkdownParser'
 
 end

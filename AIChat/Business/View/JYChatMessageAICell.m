@@ -7,12 +7,13 @@
 
 #import "JYChatMessageAICell.h"
 #import "JYMacro.h"
+#import <JYSegmentedLabel/JYSegmentedLabel.h>
 
-@interface JYChatMessageAICell ()
+@interface JYChatMessageAICell () <JYSegmentedLabelDelegate>
 
 @property(nonatomic, strong) UIView *thoughtLineView;
-@property(nonatomic, strong) UILabel *thoughtLabel;
-@property(nonatomic, strong) UILabel *contentLabel;
+@property(nonatomic, strong) JYSegmentedLabel *thoughtLabel;
+@property(nonatomic, strong) JYSegmentedLabel *contentLabel;
 
 @end
 
@@ -54,9 +55,29 @@
 #pragma mark - Data
 
 - (void)refreshWithMessage:(JYMessage *)message {
-    self.thoughtLabel.text = message.thought;
-    self.contentLabel.text = message.content;
+    if ([message.thought hasPrefix:self.thoughtLabel.text] || self.thoughtLabel.text.length == 0) {
+        NSString *newText = [message.thought substringFromIndex:self.thoughtLabel.text.length];
+        [self.thoughtLabel appendText:newText];
+    }
+    if ([message.content hasPrefix:self.contentLabel.text] || self.contentLabel.text.length == 0) {
+        NSString *newText = [message.content substringFromIndex:self.contentLabel.text.length];
+        [self.contentLabel appendText:newText];
+    }
     [self setNeedsLayout];
+}
+
+#pragma mark - JYSegmentedLabelDelegate
+
+- (void)segmentedLabel:(JYSegmentedLabel *)segmentedLabel configLabel:(UILabel *)label {
+    if (segmentedLabel == self.thoughtLabel) {
+        label.font = [UIFont systemFontOfSize:14];
+        label.textColor = UIColor.thirdTextColor;
+        label.numberOfLines = 0;
+    } else if (segmentedLabel == self.contentLabel) {
+        label.font = [UIFont systemFontOfSize:16];
+        label.textColor = UIColor.firstTextColor;
+        label.numberOfLines = 0;
+    }
 }
 
 #pragma mark - Getter
@@ -70,24 +91,20 @@
     return _thoughtLineView;
 }
 
-- (UILabel *)thoughtLabel {
+- (JYSegmentedLabel *)thoughtLabel {
     if (_thoughtLabel == nil) {
-        UILabel *label = [[UILabel alloc] init];
-        label.font = [UIFont systemFontOfSize:14];
-        label.textColor = UIColor.thirdTextColor;
-        label.numberOfLines = 0;
-        _thoughtLabel = label;
+        JYSegmentedLabel *segmentedLabel = [[JYSegmentedLabel alloc] init];
+        segmentedLabel.delegate = self;
+        _thoughtLabel = segmentedLabel;
     }
     return _thoughtLabel;
 }
 
-- (UILabel *)contentLabel {
+- (JYSegmentedLabel *)contentLabel {
     if (_contentLabel == nil) {
-        UILabel *label = [[UILabel alloc] init];
-        label.font = [UIFont systemFontOfSize:16];
-        label.textColor = UIColor.firstTextColor;
-        label.numberOfLines = 0;
-        _contentLabel = label;
+        JYSegmentedLabel *segmentedLabel = [[JYSegmentedLabel alloc] init];
+        segmentedLabel.delegate = self;
+        _contentLabel = segmentedLabel;
     }
     return _contentLabel;
 }

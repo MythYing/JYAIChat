@@ -14,13 +14,15 @@ PODS:
   - AFNetworking/Serialization (4.0.1)
   - AFNetworking/UIKit (4.0.1):
     - AFNetworking/NSURLSession
-  - CDMarkdownKit (2.5.1)
   - JYEventSource (2.0.0)
   - JYNonReusableTableView (1.0.0):
     - Masonry
     - YYKit
+  - JYSegmentedLabel (1.0.0):
+    - Masonry
   - LookinServer (1.0.5)
   - Masonry (1.1.0)
+  - NORMarkdownParser (1.0.0)
   - QMUIKit (4.8.0):
     - QMUIKit/QMUIComponents (= 4.8.0)
     - QMUIKit/QMUICore (= 4.8.0)
@@ -343,11 +345,12 @@ PODS:
 
 DEPENDENCIES:
   - AFNetworking (from `https://github.com/AFNetworking/AFNetworking.git`, tag `4.0.1`)
-  - CDMarkdownKit (from `https://github.com/chrisdhaan/CDMarkdownKit.git`, tag `2.5.1`)
   - JYEventSource (from `https://github.com/MythYing/JYEventSource.git`, tag `2.0.0`)
   - JYNonReusableTableView (from `https://github.com/MythYing/JYNonReusableTableView.git`, tag `1.0.0`)
+  - JYSegmentedLabel (from `./../JYSegmentedLabel`)
   - LookinServer (from `https://github.com/QMUI/LookinServer.git`, tag `1.0.5`)
   - Masonry (from `https://github.com/SnapKit/Masonry.git`, tag `v1.1.0`)
+  - NORMarkdownParser (from `https://github.com/MythYing/NORMarkdownParser.git`, tag `1.0.0`)
   - QMUIKit (from `https://github.com/Tencent/QMUI_iOS.git`, tag `4.8.0`)
   - YYKit (from `https://github.com/ibireme/YYKit.git`, tag `1.0.9`)
 
@@ -355,21 +358,24 @@ EXTERNAL SOURCES:
   AFNetworking:
     :git: https://github.com/AFNetworking/AFNetworking.git
     :tag: 4.0.1
-  CDMarkdownKit:
-    :git: https://github.com/chrisdhaan/CDMarkdownKit.git
-    :tag: 2.5.1
   JYEventSource:
     :git: https://github.com/MythYing/JYEventSource.git
     :tag: 2.0.0
   JYNonReusableTableView:
     :git: https://github.com/MythYing/JYNonReusableTableView.git
     :tag: 1.0.0
+  JYSegmentedLabel:
+    :path: "./../JYSegmentedLabel"
   LookinServer:
     :git: https://github.com/QMUI/LookinServer.git
     :tag: 1.0.5
   Masonry:
     :git: https://github.com/SnapKit/Masonry.git
     :tag: v1.1.0
+  NORMarkdownParser:
+    :git: https://github.com/MythYing/NORMarkdownParser.git
+    :submodules: true
+    :tag: 1.0.0
   QMUIKit:
     :git: https://github.com/Tencent/QMUI_iOS.git
     :tag: 4.8.0
@@ -381,9 +387,6 @@ CHECKOUT OPTIONS:
   AFNetworking:
     :git: https://github.com/AFNetworking/AFNetworking.git
     :tag: 4.0.1
-  CDMarkdownKit:
-    :git: https://github.com/chrisdhaan/CDMarkdownKit.git
-    :tag: 2.5.1
   JYEventSource:
     :git: https://github.com/MythYing/JYEventSource.git
     :tag: 2.0.0
@@ -396,6 +399,10 @@ CHECKOUT OPTIONS:
   Masonry:
     :git: https://github.com/SnapKit/Masonry.git
     :tag: v1.1.0
+  NORMarkdownParser:
+    :git: https://github.com/MythYing/NORMarkdownParser.git
+    :submodules: true
+    :tag: 1.0.0
   QMUIKit:
     :git: https://github.com/Tencent/QMUI_iOS.git
     :tag: 4.8.0
@@ -404,15 +411,16 @@ CHECKOUT OPTIONS:
     :tag: 1.0.9
 
 SPEC CHECKSUMS:
-  AFNetworking: 4d353c3ca66d300f1be66e439e412f8609358935
-  CDMarkdownKit: df3ca335f800aef5df3ba700de6b7108e8f235f9
+  AFNetworking: 7864c38297c79aaca1500c33288e429c3451fdce
   JYEventSource: f54738d7a460f0eea0547a3070bc4335774acfd1
-  JYNonReusableTableView: d929e700683d8938dc580f95683c39a368431653
+  JYNonReusableTableView: 91efa51498e7a726c5fcbbf9b8afcd3ff7268c6a
+  JYSegmentedLabel: f233c3bb52bfc4e7010905f26121410c7dd348c9
   LookinServer: 3d9a02529ed94a6a08154440c26f6d7f453bb1e7
   Masonry: 890751a1008d6f33a97b032f4ecad4870d7eed3a
-  QMUIKit: 525d066263f3b99eed6eca3ecdc0b0ab60df6a66
+  NORMarkdownParser: 37e35ecef55f77594f0b8f1326feefcbdd09529f
+  QMUIKit: 3c622fe3c55c0dccfad750634bd9ee5e7ade9a53
   YYKit: 7cda43304a8dc3696c449041e2cb3107b4e236e7
 
-PODFILE CHECKSUM: 04a1a39c4eec6584c4e22f1d0f38ffc1ff8f473f
+PODFILE CHECKSUM: 7ce9714e665f97bbb575decfff492cbdae37e5f7
 
-COCOAPODS: 1.16.2
+COCOAPODS: 1.15.2
