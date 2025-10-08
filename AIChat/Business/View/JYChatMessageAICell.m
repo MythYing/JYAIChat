@@ -87,16 +87,20 @@
     }
     NSString *modelDescription = [JYMessageAI modelDescriptionWithAIModel:message.model];
     self.titleLabel.text = [NSString stringWithFormat:@"%@ 生成结果：", modelDescription];
-    
-    if ([message.thought hasPrefix:self.thoughtLabel.text] || self.thoughtLabel.text.length == 0) {
-        NSString *newText = [message.thought substringFromIndex:self.thoughtLabel.text.length];
-        [self.thoughtLabel appendText:newText];
+}
+
+- (void)appendThought:(NSString *)thought {
+    if (thought.length == 0) {
+        return;
     }
-    if ([message.content hasPrefix:self.contentLabel.text] || self.contentLabel.text.length == 0) {
-        NSString *newText = [message.content substringFromIndex:self.contentLabel.text.length];
-        [self.contentLabel appendText:newText];
+    [self.thoughtLabel appendText:thought];
+}
+
+- (void)appendContent:(NSString *)content {
+    if (content.length == 0) {
+        return;
     }
-    [self setNeedsLayout];
+    [self.contentLabel appendText:content];
 }
 
 #pragma mark - JYSegmentedLabelDelegate

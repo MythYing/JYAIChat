@@ -16,9 +16,6 @@
 
 @property(nonatomic, strong) UIStackView *stackView;
 
-@property(nonatomic, strong) NSMutableArray<JYMessageSearchResult *> *resultList;
-@property(nonatomic, strong) NSLock *lock;
-
 @end
 
 @implementation JYChatMessageSearchCell
@@ -28,8 +25,6 @@
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
-        _resultList = [NSMutableArray array];
-        _lock = [[NSLock alloc] init];
         [self setupUI];
     }
     return self;
@@ -77,30 +72,19 @@
     }
     NSString *engineDescription = [JYMessageSearch engineDescriptionWithSearchEngine:message.engine];
     self.titleLabel.text = [NSString stringWithFormat:@"%@ 搜索结果：", engineDescription];
+}
+
+- (void)appendResult:(JYMessageSearchResult *)result {
+    UILabel *label = [self makeNewLabel];
+    label.text = result.title;
+    label.userInteractionEnabled = YES;
+    [self.stackView addArrangedSubview:label];
     
-    [self.lock lock];
-    for (NSInteger i = 0; i < message.resultList.count; i++) {
-        JYMessageSearchResult *result = message.resultList[i];
-        if (![self.resultList containsObject:result]) {
-            UILabel *label = [self makeNewLabel];
-            label.text = result.title;
-            label.userInteractionEnabled = YES;
-            NSString *urlString = result.url;
-            UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithActionBlock:^(id  _Nonnull sender) {
-                NSURL *url = [NSURL URLWithString:urlString];
-                if (url) {
-                    SFSafariViewController *safariVC = [[SFSafariViewController alloc] initWithURL:url];
-                    safariVC.modalPresentationStyle = UIModalPresentationPageSheet;
-                    UIViewController *topVC = [UIApplication sharedApplication].delegate.window.rootViewController;
-                    [topVC presentViewController:safariVC animated:YES completion:nil];
-                }
-            }];
-            [label addGestureRecognizer:tap];
-            [self.stackView addArrangedSubview:label];
-            [self.resultList addObject:result];
-        }
-    }
-    [self.lock unlock];
+    NSString *urlString = result.url;
+    UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithActionBlock:^(id  _Nonnull sender) {
+        [self onSelectUrl:urlString];
+    }];
+    [label addGestureRecognizer:tap];
 }
 
 - (UILabel *)makeNewLabel {
@@ -113,6 +97,18 @@
         NSUnderlineStyleAttributeName: @(NSUnderlineStyleSingle)
     };
     return label;
+}
+
+#pragma mark - Action
+
+- (void)onSelectUrl:(NSString *)urlString {
+    NSURL *url = [NSURL URLWithString:urlString];
+    if (url) {
+        SFSafariViewController *safariVC = [[SFSafariViewController alloc] initWithURL:url];
+        safariVC.modalPresentationStyle = UIModalPresentationPageSheet;
+        UIViewController *topVC = [UIApplication sharedApplication].delegate.window.rootViewController;
+        [topVC presentViewController:safariVC animated:YES completion:nil];
+    }
 }
 
 #pragma mark - Getter

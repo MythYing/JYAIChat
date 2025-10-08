@@ -12,4 +12,6 @@
 
 - (void)refreshWithMessage:(JYMessageSearch *_Nonnull)message;
 
+- (void)appendResult:(JYMessageSearchResult *_Nonnull)result;
+
 @end

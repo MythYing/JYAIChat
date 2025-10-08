@@ -48,7 +48,6 @@
 
 - (void)refreshWithMessage:(JYMessageUser *)message {
     self.contentLabel.text = message.content;
-    [self setNeedsLayout];
 }
 
 #pragma mark - Getter

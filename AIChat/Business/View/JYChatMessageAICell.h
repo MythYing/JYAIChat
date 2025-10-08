@@ -12,4 +12,7 @@
 
 - (void)refreshWithMessage:(JYMessageAI *_Nonnull)message;
 
+- (void)appendThought:(NSString *_Nonnull)thought;
+- (void)appendContent:(NSString *_Nonnull)content;
+
 @end
