@@ -5,10 +5,10 @@
 //  Created by JiangYing on 2025/10/5.
 //
 
-#import <JYNonReusableTableView/JYNonReusableTableView.h>
+#import <UIKit/UIKit.h>
 #import "JYModel.h"
 
-@interface JYChatMessageUserCell : JYNonReusableTableViewCell
+@interface JYChatMessageUserCell : UIView
 
 - (void)refreshWithMessage:(JYMessageUser *_Nonnull)message;
 

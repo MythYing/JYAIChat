@@ -31,25 +31,25 @@
 }
 
 - (void)setupUI {
-    self.contentView.backgroundColor = UIColor.whiteColor;
+    self.backgroundColor = UIColor.whiteColor;
     
-    [self.contentView addSubview:self.iconImageView];
-    [self.contentView addSubview:self.titleLabel];
-    [self.contentView addSubview:self.stackView];
+    [self addSubview:self.iconImageView];
+    [self addSubview:self.titleLabel];
+    [self addSubview:self.stackView];
     
     [self.iconImageView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.width.height.equalTo(@24);
-        make.top.leading.equalTo(self.contentView).inset(24);
+        make.top.leading.equalTo(self).inset(24);
     }];
     [self.titleLabel mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.bottom.equalTo(self.iconImageView);
         make.leading.equalTo(self.iconImageView.mas_trailing).offset(4);
-        make.trailing.equalTo(self.contentView).inset(24);
+        make.trailing.equalTo(self).inset(24);
     }];
     [self.stackView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.equalTo(self.iconImageView.mas_bottom).offset(12);
-        make.leading.trailing.equalTo(self.contentView).inset(24);
-        make.bottom.equalTo(self.contentView);
+        make.leading.trailing.equalTo(self).inset(24);
+        make.bottom.equalTo(self);
     }];
 }
 

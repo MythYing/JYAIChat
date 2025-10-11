@@ -44,18 +44,11 @@ target 'AIChat' do
       :git => 'https://github.com/MythYing/JYEventSource.git',
       :tag => '2.0.0'
 
-    pod 'JYNonReusableTableView',
-      :git => 'https://github.com/MythYing/JYNonReusableTableView.git',
-      :tag => '1.0.0'
-
     pod 'JYSegmentedLabel',
       :path => './../JYSegmentedLabel'
 
 #    pod 'JYEventSource',
 #      :path => './../JYEventSource'
-
-#    pod 'JYNonReusableTableView',
-#      :path => './../JYNonReusableTableView'
 
 #    pod 'NORMarkdownParser',
 #      :path => './../NORMarkdownParser'

@@ -7,16 +7,16 @@
 
 #import "JYChatMessageAICell.h"
 #import "JYMacro.h"
-#import <JYSegmentedLabel/JYSegmentedLabel.h>
 
 @interface JYChatMessageAICell () <JYSegmentedLabelDelegate>
 
 @property(nonatomic, strong) UIImageView *iconImageView;
 @property(nonatomic, strong) UILabel *titleLabel;
-
-@property(nonatomic, strong) UIView *thoughtLineView;
 @property(nonatomic, strong) JYSegmentedLabel *thoughtLabel;
 @property(nonatomic, strong) JYSegmentedLabel *contentLabel;
+@property(nonatomic, strong) UIView *thoughtLineView;
+
+@property(nonatomic, assign) JYSegmentedLabelAnimationStatus animationStatus;
 
 @end
 
@@ -27,48 +27,50 @@
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
+        _animationStatus = JYSegmentedLabelAnimationStatusNone;
         [self setupUI];
     }
     return self;
 }
 
 - (void)setupUI {
-    self.contentView.backgroundColor = UIColor.whiteColor;
+    self.backgroundColor = UIColor.whiteColor;
     
-    [self.contentView addSubview:self.iconImageView];
-    [self.contentView addSubview:self.titleLabel];
-    [self.contentView addSubview:self.thoughtLineView];
-    [self.contentView addSubview:self.thoughtLabel];
-    [self.contentView addSubview:self.contentLabel];
+    [self addSubview:self.iconImageView];
+    [self addSubview:self.titleLabel];
+    [self addSubview:self.thoughtLineView];
+    [self addSubview:self.thoughtLabel];
+    [self addSubview:self.contentLabel];
     
     [self.iconImageView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.width.height.equalTo(@24);
-        make.top.leading.equalTo(self.contentView).inset(24);
+        make.top.leading.equalTo(self).inset(24);
     }];
     [self.titleLabel mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.bottom.equalTo(self.iconImageView);
         make.leading.equalTo(self.iconImageView.mas_trailing).offset(4);
-        make.trailing.equalTo(self.contentView).inset(24);
+        make.trailing.equalTo(self).inset(24);
     }];
     [self.thoughtLabel mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.equalTo(self.iconImageView.mas_bottom).offset(12);
-        make.leading.trailing.equalTo(self.contentView).inset(36);
+        make.leading.trailing.equalTo(self).inset(36);
     }];
     [self.thoughtLineView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.width.equalTo(@2);
         make.top.bottom.equalTo(self.thoughtLabel);
-        make.leading.equalTo(self.contentView).inset(24);
+        make.leading.equalTo(self).inset(24);
     }];
     [self.contentLabel mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.equalTo(self.thoughtLabel.mas_bottom).offset(12);
-        make.leading.trailing.equalTo(self.contentView).inset(24);
-        make.bottom.equalTo(self.contentView);
+        make.leading.trailing.equalTo(self).inset(24);
+        make.bottom.equalTo(self);
     }];
 }
 
 #pragma mark - Data
 
 - (void)refreshWithMessage:(JYMessageAI *)message {
+    self.model = message.model;
     switch (message.model) {
         case JYMessageAIModelMixed:
             self.iconImageView.image = [UIImage imageNamed:@"model_mixed"];
@@ -94,6 +96,11 @@
         return;
     }
     [self.thoughtLabel appendText:thought];
+    [self tryStartAnimation];
+}
+
+- (void)finishAppendThought {
+    [self.thoughtLabel finishAppend];
 }
 
 - (void)appendContent:(NSString *)content {
@@ -101,6 +108,59 @@
         return;
     }
     [self.contentLabel appendText:content];
+    [self tryStartAnimation];
+}
+
+- (void)finishAppendContent {
+    [self.contentLabel finishAppend];
+}
+
+#pragma mark - Animation
+
+- (void)startAnimation {
+    self.animationStatus = JYSegmentedLabelAnimationStatusAnimating;
+    [self tryStartAnimation];
+}
+
+- (void)tryStartAnimation {
+    @weakify(self);
+    self.thoughtLabel.startAnimationAction = ^{
+        @strongify(self);
+        JY_SAFE_BLOCK(self.startThoughtAnimationAction);
+    };
+    self.thoughtLabel.stopAnimationAction = ^{
+        @strongify(self);
+        JY_SAFE_BLOCK(self.stopThoughtAnimationAction);
+        [self.contentLabel startAnimation];
+    };
+    self.contentLabel.startAnimationAction = ^{
+        @strongify(self);
+        JY_SAFE_BLOCK(self.startContentAnimationAction);
+    };
+    self.contentLabel.stopAnimationAction = ^{
+        @strongify(self);
+        JY_SAFE_BLOCK(self.stopContentAnimationAction);
+        self.animationStatus = JYSegmentedLabelAnimationStatusAnimated;
+        if (self.stopAnimationAction) {
+            self.stopAnimationAction();
+        }
+    };
+    if (self.animationStatus == JYSegmentedLabelAnimationStatusAnimating
+        && self.thoughtLabel.text.length > 0
+        && self.thoughtLabel.animationStatus == JYSegmentedLabelAnimationStatusNone) {
+        [self.thoughtLabel startAnimation];
+        if (self.startAnimationAction) {
+            self.startAnimationAction();
+        }
+    } else if (self.animationStatus == JYSegmentedLabelAnimationStatusAnimating
+               && self.thoughtLabel.text.length == 0
+               && self.contentLabel.text.length > 0
+               && self.contentLabel.animationStatus == JYSegmentedLabelAnimationStatusNone) {
+        [self.contentLabel startAnimation];
+        if (self.startAnimationAction) {
+            self.startAnimationAction();
+        }
+    }
 }
 
 #pragma mark - JYSegmentedLabelDelegate

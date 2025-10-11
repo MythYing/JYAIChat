@@ -14,13 +14,13 @@
 #import "JYChatMessageAICell.h"
 #import "JYChatMessageSearchCell.h"
 #import <JYEventSource/EventSource.h>
-#import <JYNonReusableTableView/JYNonReusableTableView.h>
 
-@interface JYChatViewController () <JYNonReusableTableViewDelegate, JYNonReusableTableViewDataSource>
+@interface JYChatViewController ()
 
 @property(nonatomic, strong) JYChatNavigationBar *navBar;
 @property(nonatomic, strong) JYChatInputView *inputView;
-@property(nonatomic, strong) JYNonReusableTableView *messageTableView;
+@property(nonatomic, strong) UIScrollView *scrollView;
+@property(nonatomic, strong) UIStackView *stackView;
 
 @property(nonatomic, copy) YYThreadSafeArray *messageList;
 @property(nonatomic, strong) EventSource *eventSource;
@@ -31,11 +31,16 @@
 @property(nonatomic, copy) NSString *statusString;
 @property(nonatomic, copy) NSString *loadingString;
 
+@property(nonatomic, assign) BOOL didFinishReceive;
+
 @property(nonatomic, strong) YYThreadSafeDictionary *searchMessageDic;
 @property(nonatomic, strong) YYThreadSafeDictionary *searchCellDic;
 
 @property(nonatomic, strong) YYThreadSafeDictionary *aiMessageDic;
 @property(nonatomic, strong) YYThreadSafeDictionary *aiCellDic;
+
+@property(nonatomic, strong) YYThreadSafeArray *aiCellAnimationQueue;
+@property(nonatomic, strong) NSTimer *scrollTimer;
 
 @end
 
@@ -52,6 +57,7 @@
         _searchCellDic = [YYThreadSafeDictionary dictionary];
         _aiMessageDic = [YYThreadSafeDictionary dictionary];
         _aiCellDic = [YYThreadSafeDictionary dictionary];
+        _aiCellAnimationQueue = [YYThreadSafeArray array];
     }
     return self;
 }
@@ -84,7 +90,8 @@
     
     [self.view addSubview:self.navBar];
     [self.view addSubview:self.inputView];
-    [self.view addSubview:self.messageTableView];
+    [self.view addSubview:self.scrollView];
+    [self.scrollView addSubview:self.stackView];
     
     [self.navBar mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.leading.trailing.equalTo(self.view);
@@ -92,13 +99,15 @@
     [self.inputView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.bottom.leading.trailing.equalTo(self.view);
     }];
-    [self.messageTableView mas_makeConstraints:^(MASConstraintMaker *make) {
+    [self.scrollView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.leading.trailing.equalTo(self.view);
         make.top.equalTo(self.navBar.mas_bottom);
         make.bottom.equalTo(self.inputView.mas_top);
     }];
-    
-    [self.messageTableView reloadData];
+    [self.stackView mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.edges.equalTo(self.stackView.superview);
+        make.width.equalTo(self.scrollView);
+    }];
     
     [self setStatus:JYMessageStatusNone prefix:@""];
     
@@ -108,7 +117,7 @@
 #pragma mark - Notification
 
 - (void)keyboardWillShow:(NSNotification *)notification {
-    [self.messageTableView qmui_scrollToBottomAnimated:YES];
+    [self.scrollView qmui_scrollToBottomAnimated:YES];
 }
 
 #pragma mark - Action
@@ -129,16 +138,19 @@
     userMessage.contentId = [NSUUID UUID].UUIDString.lowercaseString;
     userMessage.content = text;
     [self.messageList appendObject:userMessage];
-    NSIndexPath *indexPath = [NSIndexPath indexPathForRow:self.messageList.count - 1 inSection:0];
-    [self.messageTableView insertRowAtIndexPath:indexPath];
-    [self.messageTableView qmui_scrollToBottomAnimated:YES];
+    JYChatMessageUserCell *cell = [[JYChatMessageUserCell alloc] init];
+    [cell refreshWithMessage:userMessage];
+    [self.stackView addArrangedSubview:cell];
     [self setStatus:JYMessageStatusWaiting prefix:@""];
+    [self startScrollTimer];
     
     // 消息和视图Dic置空
     [self.searchMessageDic removeAllObjects];
     [self.searchCellDic removeAllObjects];
     [self.aiMessageDic removeAllObjects];
     [self.aiCellDic removeAllObjects];
+    [self.aiCellAnimationQueue removeAllObjects];
+    self.didFinishReceive = NO;
     
     if (self.eventSource) {
         EventSource *eventSource = self.eventSource;
@@ -181,20 +193,11 @@
 - (void)onSSEMessage:(EventSourceEvent *)event {
     NSLog(@"[jy] SSE Message: \n event.id: %@ \n event.event: %@ \n event.data: %@", event.id, event.event, event.data);
     if ([event.event isEqualToString:JYMessageEventDone]) {
-        [self setStatus:JYMessageStatusDone prefix:@""];
-        // 消息和视图Dic置空
-        [self.searchMessageDic removeAllObjects];
-        [self.searchCellDic removeAllObjects];
-        [self.aiMessageDic removeAllObjects];
-        [self.aiCellDic removeAllObjects];
+        self.didFinishReceive = YES;
         
         EventSource *eventSource = self.eventSource;
         self.eventSource = nil;
         [eventSource close];
-        
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [self.messageTableView qmui_scrollToBottomAnimated:NO];
-        });
     } else if ([event.event isEqualToString:JYMessageEventMessage]) {
         JYCozeData *data = [JYCozeData modelWithJSON:event.data];
         NSArray<NSString *> *arr = [data.node_title componentsSeparatedByString:@"_"];
@@ -207,24 +210,24 @@
                 self.searchMessageDic[@(engine)] = newMessage;
                 [self.messageList appendObject:newMessage];
                 
-                NSIndexPath *indexPath = [NSIndexPath indexPathForRow:self.messageList.count - 1 inSection:0];
                 dispatch_async(dispatch_get_main_queue(), ^{
                     JYChatMessageSearchCell *cell = [[JYChatMessageSearchCell alloc] init];
                     [cell refreshWithMessage:newMessage];
                     self.searchCellDic[@(engine)] = cell;
-                    [self.messageTableView insertRowAtIndexPath:indexPath];
+                    
+                    [self.stackView addArrangedSubview:cell];
+                    [self setStatus:JYMessageStatusSearching prefix:[JYMessageSearch engineDescriptionWithSearchEngine:newMessage.engine]];
                 });
-                
-                NSString *prefix = [JYMessageSearch engineDescriptionWithSearchEngine:newMessage.engine];
-                [self setStatus:JYMessageStatusSearching prefix:prefix];
             }
             JYMessageSearch *searchMessage = self.searchMessageDic[@(engine)];
             JYMessageSearchResult *result = [JYMessageSearchResult modelWithJSON:data.content];
+            if (result.title.length == 0) {
+                return;
+            }
             [searchMessage appendResult:result];
             dispatch_async(dispatch_get_main_queue(), ^{
                 JYChatMessageSearchCell *searchCell = self.searchCellDic[@(engine)];
                 [searchCell appendResult:result];
-                [self.messageTableView qmui_scrollToBottomAnimated:NO];
             });
         } else if (arr.count == 4 || [arr[0] isEqualToString:JYMessageTypeNameAI]) {
             JYMessageAIModel aiModel = [JYMessageAI aiModelFromModelName:arr[2]];
@@ -236,12 +239,13 @@
                 self.aiMessageDic[@(aiModel)] = newMessage;
                 [self.messageList appendObject:newMessage];
                 
-                NSIndexPath *indexPath = [NSIndexPath indexPathForRow:self.messageList.count - 1 inSection:0];
                 dispatch_async(dispatch_get_main_queue(), ^{
                     JYChatMessageAICell *cell = [[JYChatMessageAICell alloc] init];
                     [cell refreshWithMessage:newMessage];
                     self.aiCellDic[@(aiModel)] = cell;
-                    [self.messageTableView insertRowAtIndexPath:indexPath];
+                    
+                    [self.aiCellAnimationQueue appendObject:cell];
+                    [self tryDequeueCellAnimation];
                 });
             }
             JYMessageAI *aiMessage = self.aiMessageDic[@(aiModel)];
@@ -250,8 +254,6 @@
                 BOOL isEnd = data.node_is_finish;
                 if (aiMessage.thoughtId.length == 0) {
                     aiMessage.thoughtId = data.node_execute_uuid;
-                    NSString *prefix = [JYMessageAI modelDescriptionWithAIModel:aiMessage.model];
-                    [self setStatus:JYMessageStatusAIThinking prefix:prefix];
                 }
                 NSString *thought = data.content ?: @"";
                 if (isBegin) {
@@ -264,15 +266,15 @@
                 dispatch_async(dispatch_get_main_queue(), ^{
                     JYChatMessageAICell *aiCell = self.aiCellDic[@(aiModel)];
                     [aiCell appendThought:thought];
-                    [self.messageTableView qmui_scrollToBottomAnimated:NO];
+                    if (isEnd) {
+                        [aiCell finishAppendThought];
+                    }
                 });
             } else {
                 BOOL isBegin = aiMessage.content.length == 0;
                 BOOL isEnd = data.node_is_finish;
                 if (aiMessage.contentId.length == 0) {
                     aiMessage.contentId = data.node_execute_uuid;
-                    NSString *prefix = [JYMessageAI modelDescriptionWithAIModel:aiMessage.model];
-                    [self setStatus:JYMessageStatusAIReplying prefix:prefix];
                 }
                 NSString *content = data.content ?: @"";
                 if (isBegin) {
@@ -285,11 +287,71 @@
                 dispatch_async(dispatch_get_main_queue(), ^{
                     JYChatMessageAICell *aiCell = self.aiCellDic[@(aiModel)];
                     [aiCell appendContent:content];
-                    [self.messageTableView qmui_scrollToBottomAnimated:NO];
+                    if (isEnd) {
+                        [aiCell finishAppendContent];
+                    }
                 });
             }
         }
     }
+}
+
+- (void)tryDequeueCellAnimation {
+    JYChatMessageAICell *animatingCell = [self.aiCellAnimationQueue qmui_firstMatchWithBlock:^BOOL(JYChatMessageAICell *_Nonnull item) {
+        return item.animationStatus == JYSegmentedLabelAnimationStatusAnimating;
+    }];
+    if (animatingCell) {
+        return;
+    }
+    JYChatMessageAICell *cell = [self.aiCellAnimationQueue qmui_firstMatchWithBlock:^BOOL(JYChatMessageAICell *_Nonnull item) {
+        return item.animationStatus == JYSegmentedLabelAnimationStatusNone;
+    }];
+    if (cell) {
+        @weakify(self);
+        @weakify(cell);
+        cell.startThoughtAnimationAction = ^{
+            @strongify(self);
+            @strongify(cell);
+            [self setStatus:JYMessageStatusAIThinking prefix:[JYMessageAI modelDescriptionWithAIModel:cell.model]];
+        };
+        cell.startContentAnimationAction = ^{
+            @strongify(self);
+            @strongify(cell);
+            [self setStatus:JYMessageStatusAIReplying prefix:[JYMessageAI modelDescriptionWithAIModel:cell.model]];
+        };
+        cell.stopAnimationAction = ^{
+            @strongify(self);
+            [self tryDequeueCellAnimation];
+        };
+        [cell startAnimation];
+        [self.stackView addArrangedSubview:cell];
+    } else if (self.didFinishReceive) {
+        [self setStatus:JYMessageStatusDone prefix:@""];
+        [self stopScrollTimer];
+        [self.scrollView qmui_scrollToBottomAnimated:NO];
+    }
+}
+
+#pragma mark - Scroll Timer
+
+- (void)startScrollTimer {
+    if (self.scrollTimer) {
+        return;
+    }
+    self.scrollTimer = [NSTimer scheduledTimerWithTimeInterval:0.2
+                                                        target:self
+                                                      selector:@selector(onScrollTimer)
+                                                      userInfo:nil
+                                                       repeats:YES];
+}
+
+- (void)stopScrollTimer {
+    [self.scrollTimer invalidate];
+    self.scrollTimer = nil;
+}
+
+- (void)onScrollTimer {
+    [self.scrollView qmui_scrollToBottomAnimated:NO];
 }
 
 #pragma mark - Status Loading
@@ -355,47 +417,6 @@
     });
 }
 
-#pragma mark - JYNonReusableTableViewDelegate & JYNonReusableTableViewDataSource
-
-- (NSInteger)numberOfSectionsInTableView:(JYNonReusableTableView *)tableView {
-    return 1;
-}
-
-- (NSInteger)tableView:(JYNonReusableTableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return self.messageList.count;
-}
-
-- (JYNonReusableTableViewCell *)tableView:(JYNonReusableTableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    JYMessage *message = [self.messageList objectOrNilAtIndex:indexPath.row];
-    if (message == nil) {
-        return [[JYNonReusableTableViewCell alloc] init];
-    }
-    switch (message.type) {
-        case JYMessageTypeUser: {
-            JYMessageUser *castMessage = JY_SAFE_CAST(message, JYMessageUser);
-            JYChatMessageUserCell *cell = [[JYChatMessageUserCell alloc] init];
-            [cell refreshWithMessage:castMessage];
-            return cell;
-        }
-        case JYMessageTypeAI: {
-            JYMessageAI *castMessage = JY_SAFE_CAST(message, JYMessageAI);
-            JYChatMessageAICell *cell = [self.aiCellDic objectForKey:@(castMessage.model)];
-            return cell;
-        }
-        case JYMessageTypeSearch: {
-            JYMessageSearch *castMessage = JY_SAFE_CAST(message, JYMessageSearch);
-            JYChatMessageSearchCell *cell = [self.searchCellDic objectForKey:@(castMessage.engine)];
-            return cell;
-        }
-        case JYMessageTypeUnknown: {
-            return [[JYNonReusableTableViewCell alloc] init];
-        }
-    }
-}
-
-- (void)tableView:(JYNonReusableTableView *)tableView refreshCell:(JYNonReusableTableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath {
-}
-
 #pragma mark - Getter
 
 - (JYChatNavigationBar *)navBar {
@@ -424,18 +445,28 @@
     return _inputView;
 }
 
-- (JYNonReusableTableView *)messageTableView {
-    if (_messageTableView == nil) {
-        JYNonReusableTableView *tableView = [[JYNonReusableTableView alloc] init];
-        tableView.backgroundColor = UIColor.whiteColor;
-        tableView.delegate = self;
-        tableView.dataSource = self;
-        tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
-        tableView.contentInset = UIEdgeInsetsMake(0, 0, 24, 0);
-        tableView.bounces = YES;
-        _messageTableView = tableView;
+- (UIScrollView *)scrollView {
+    if (_scrollView == nil) {
+        UIScrollView *scrollView = [[UIScrollView alloc] init];
+        scrollView.backgroundColor = UIColor.whiteColor;
+        scrollView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
+        scrollView.contentInset = UIEdgeInsetsMake(0, 0, 24, 0);
+        scrollView.bounces = YES;
+        _scrollView = scrollView;
     }
-    return _messageTableView;
+    return _scrollView;
+}
+
+- (UIStackView *)stackView {
+    if (_stackView == nil) {
+        UIStackView *stackView = [[UIStackView alloc] init];
+        stackView.axis = UILayoutConstraintAxisVertical;
+        stackView.alignment = UIStackViewAlignmentFill;
+        stackView.distribution = UIStackViewDistributionFill;
+        stackView.spacing = 0;
+        _stackView = stackView;
+    }
+    return _stackView;
 }
 
 @end

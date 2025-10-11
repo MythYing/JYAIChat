@@ -28,15 +28,15 @@
 }
 
 - (void)setupUI {
-    self.contentView.backgroundColor = UIColor.whiteColor;
+    self.backgroundColor = UIColor.whiteColor;
     
-    [self.contentView addSubview:self.bubbleView];
+    [self addSubview:self.bubbleView];
     [self.bubbleView addSubview:self.contentLabel];
     
     [self.bubbleView mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.top.equalTo(self.contentView).inset(24);
-        make.bottom.equalTo(self.contentView);
-        make.trailing.equalTo(self.contentView).inset(24);
+        make.top.equalTo(self).inset(24);
+        make.bottom.equalTo(self);
+        make.trailing.equalTo(self).inset(24);
         make.width.lessThanOrEqualTo(@(SCREEN_WIDTH - 24 - 100));
     }];
     [self.contentLabel mas_makeConstraints:^(MASConstraintMaker *make) {
