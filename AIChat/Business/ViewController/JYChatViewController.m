@@ -21,6 +21,7 @@
 @property(nonatomic, strong) JYChatInputView *inputView;
 @property(nonatomic, strong) UIScrollView *scrollView;
 @property(nonatomic, strong) UIStackView *stackView;
+@property(nonatomic, strong) UILabel *titleLabel;
 
 @property(nonatomic, copy) YYThreadSafeArray *messageList;
 @property(nonatomic, strong) EventSource *eventSource;
@@ -92,6 +93,7 @@
     [self.view addSubview:self.inputView];
     [self.view addSubview:self.scrollView];
     [self.scrollView addSubview:self.stackView];
+    [self.view addSubview:self.titleLabel];
     
     [self.navBar mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.leading.trailing.equalTo(self.view);
@@ -108,8 +110,16 @@
         make.edges.equalTo(self.stackView.superview);
         make.width.equalTo(self.scrollView);
     }];
+    [self.titleLabel mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.leading.trailing.equalTo(self.scrollView).inset(24);
+        make.centerY.equalTo(self.scrollView);
+    }];
     
     [self setStatus:JYMessageStatusNone prefix:@""];
+    
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [self startTitleAnimationWithLength:0];
+    });
     
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboardWillShow:) name:UIKeyboardWillShowNotification object:nil];
 }
@@ -133,6 +143,7 @@
     [self.inputView.textView.delegate textViewDidChange:self.inputView.textView];
     [self.inputView.textView endEditing:YES];
     self.inputView.userInteractionEnabled = NO;
+    self.titleLabel.hidden = YES;
     
     JYMessageUser *userMessage = [[JYMessageUser alloc] init];
     userMessage.contentId = [NSUUID UUID].UUIDString.lowercaseString;
@@ -403,7 +414,7 @@
 }
     
 - (void)startLoadingWithStatusString: (NSString *)statusString {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         if (![statusString isEqualToString:self.statusString]) {
             return;
         }
@@ -414,6 +425,19 @@
         }
         self.inputView.placeholderLabel.text = [NSString stringWithFormat:@"%@%@", statusString, self.loadingString];
         [self startLoadingWithStatusString:statusString];
+    });
+}
+
+#pragma mark - Title Animation
+
+- (void)startTitleAnimationWithLength:(NSInteger)length {
+    NSString *title = @"请尽情向我提问～";
+    if (length > title.length) {
+        return;
+    }
+    self.titleLabel.text = [title substringToIndex:length];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [self startTitleAnimationWithLength:length + 1];
     });
 }
 
@@ -467,6 +491,17 @@
         _stackView = stackView;
     }
     return _stackView;
+}
+
+- (UILabel *)titleLabel {
+    if (_titleLabel == nil) {
+        UILabel *label = [[UILabel alloc] init];
+        label.font = [UIFont systemFontOfSize:20];
+        label.textColor = UIColor.firstTextColor;
+        label.textAlignment = NSTextAlignmentCenter;
+        _titleLabel = label;
+    }
+    return _titleLabel;
 }
 
 @end
