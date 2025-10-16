@@ -7,6 +7,7 @@
 
 #import "JYChatMessageAICell.h"
 #import "JYMacro.h"
+#import <JYSegmentedLabel/JYSegmentedLabel.h>
 
 @interface JYChatMessageAICell () <JYSegmentedLabelDelegate>
 
@@ -16,7 +17,7 @@
 @property(nonatomic, strong) JYSegmentedLabel *contentLabel;
 @property(nonatomic, strong) UIView *thoughtLineView;
 
-@property(nonatomic, assign) JYSegmentedLabelAnimationStatus animationStatus;
+@property(nonatomic, assign) JYChatMessageAICellAnimationStatus animationStatus;
 
 @end
 
@@ -27,7 +28,7 @@
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
-        _animationStatus = JYSegmentedLabelAnimationStatusNone;
+        _animationStatus = JYChatMessageAICellAnimationStatusNone;
         [self setupUI];
     }
     return self;
@@ -69,9 +70,8 @@
 
 #pragma mark - Data
 
-- (void)refreshWithMessage:(JYMessageAI *)message {
-    self.model = message.model;
-    switch (message.model) {
+- (void)refreshWithModel:(JYMessageAIModel)model {
+    switch (model) {
         case JYMessageAIModelMixed:
             self.iconImageView.image = [UIImage imageNamed:@"model_mixed"];
             break;
@@ -87,8 +87,7 @@
         default:
             break;
     }
-    NSString *modelDescription = [JYMessageAI modelDescriptionWithAIModel:message.model];
-    self.titleLabel.text = [NSString stringWithFormat:@"%@ 生成结果：", modelDescription];
+    self.titleLabel.text = [NSString stringWithFormat:@"%@ 生成结果：", aiModelDescription(model)];
 }
 
 - (void)appendThought:(NSString *)thought {
@@ -118,11 +117,18 @@
 #pragma mark - Animation
 
 - (void)startAnimation {
-    self.animationStatus = JYSegmentedLabelAnimationStatusAnimating;
+    self.animationStatus = JYChatMessageAICellAnimationStatusReady;
     [self tryStartAnimation];
 }
 
 - (void)tryStartAnimation {
+    if (self.animationStatus != JYChatMessageAICellAnimationStatusReady) {
+        return;
+    }
+    if (self.thoughtLabel.text.length == 0 && self.contentLabel.text.length == 0) {
+        return;
+    }
+    self.animationStatus = JYChatMessageAICellAnimationStatusRunning;
     @weakify(self);
     self.thoughtLabel.startAnimationAction = ^{
         @strongify(self);
@@ -140,20 +146,18 @@
     self.contentLabel.stopAnimationAction = ^{
         @strongify(self);
         JY_SAFE_BLOCK(self.stopContentAnimationAction);
-        self.animationStatus = JYSegmentedLabelAnimationStatusAnimated;
+        self.animationStatus = JYChatMessageAICellAnimationStatusFulfilled;
         if (self.stopAnimationAction) {
             self.stopAnimationAction();
         }
     };
-    if (self.animationStatus == JYSegmentedLabelAnimationStatusAnimating
-        && self.thoughtLabel.text.length > 0
+    if (self.thoughtLabel.text.length > 0
         && self.thoughtLabel.animationStatus == JYSegmentedLabelAnimationStatusNone) {
         [self.thoughtLabel startAnimation];
         if (self.startAnimationAction) {
             self.startAnimationAction();
         }
-    } else if (self.animationStatus == JYSegmentedLabelAnimationStatusAnimating
-               && self.thoughtLabel.text.length == 0
+    } else if (self.thoughtLabel.text.length == 0
                && self.contentLabel.text.length > 0
                && self.contentLabel.animationStatus == JYSegmentedLabelAnimationStatusNone) {
         [self.contentLabel startAnimation];

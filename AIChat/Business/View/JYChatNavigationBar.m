@@ -128,7 +128,7 @@
 - (UILabel *)titleLabel {
     if (_titleLabel == nil) {
         UILabel *label = [[UILabel alloc] init];
-        label.text = @"超级AI助手";
+        label.text = @"多维AI助手";
         label.font = [UIFont qmui_mediumSystemFontOfSize:14];
         label.textColor = UIColor.firstTextColor;
         label.numberOfLines = 1;
@@ -140,7 +140,7 @@
 - (UILabel *)subtitleLabel {
     if (_subtitleLabel == nil) {
         UILabel *label = [[UILabel alloc] init];
-        label.text = @"全网搜索+多模型回答";
+        label.text = @"多网搜索+多模型回答";
         label.font = [UIFont systemFontOfSize:12];
         label.textColor = UIColor.thirdTextColor;
         label.numberOfLines = 1;

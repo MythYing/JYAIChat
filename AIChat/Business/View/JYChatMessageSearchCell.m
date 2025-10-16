@@ -16,6 +16,9 @@
 
 @property(nonatomic, strong) UIStackView *stackView;
 
+@property(nonatomic, strong) YYThreadSafeArray *bufferResultList;
+@property(nonatomic, strong) NSTimer *timer;
+
 @end
 
 @implementation JYChatMessageSearchCell
@@ -25,6 +28,7 @@
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
+        _bufferResultList = [YYThreadSafeArray array];
         [self setupUI];
     }
     return self;
@@ -55,8 +59,8 @@
 
 #pragma mark - Data
 
-- (void)refreshWithMessage:(JYMessageSearch *)message {
-    switch (message.engine) {
+- (void)refreshWithEngine:(JYMessageSearchEngine)engine {
+    switch (engine) {
         case JYMessageSearchEngineToutiao:
             self.iconImageView.image = [UIImage imageNamed:@"search_toutiao"];
             break;
@@ -70,11 +74,30 @@
             self.iconImageView.image = nil;
             break;
     }
-    NSString *engineDescription = [JYMessageSearch engineDescriptionWithSearchEngine:message.engine];
-    self.titleLabel.text = [NSString stringWithFormat:@"%@ 搜索结果：", engineDescription];
+    self.titleLabel.text = [NSString stringWithFormat:@"%@ 搜索结果：", searchEngineDescription(engine)];
 }
 
-- (void)appendResult:(JYMessageSearchResult *)result {
+- (void)setResultList:(NSArray<JYMessageSearchResult *> *)resultList {
+    [self.bufferResultList addObjectsFromArray:resultList];
+    self.timer = [NSTimer timerWithTimeInterval:0.2
+                                         target:self
+                                       selector:@selector(timerFired:)
+                                       userInfo:nil
+                                        repeats:YES];
+    [[NSRunLoop mainRunLoop] addTimer:self.timer forMode:NSRunLoopCommonModes];
+    JY_SAFE_BLOCK(self.startAnimationAction);
+}
+
+- (void)timerFired:(NSTimer *)timer {
+    if (self.bufferResultList.count == 0) {
+        [self.timer invalidate];
+        self.timer = nil;
+        JY_SAFE_BLOCK(self.stopAnimationAction);
+        return;
+    }
+    JYMessageSearchResult *result = self.bufferResultList.firstObject;
+    [self.bufferResultList removeFirstObject];
+    
     UILabel *label = [self makeNewLabel];
     label.text = result.title;
     label.userInteractionEnabled = YES;

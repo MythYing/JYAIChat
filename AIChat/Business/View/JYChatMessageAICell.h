@@ -6,14 +6,18 @@
 //
 
 #import <UIKit/UIKit.h>
-#import <JYSegmentedLabel/JYSegmentedLabel.h>
 #import "JYModel.h"
+
+typedef enum : NSUInteger {
+    JYChatMessageAICellAnimationStatusNone = 0,
+    JYChatMessageAICellAnimationStatusReady = 1,
+    JYChatMessageAICellAnimationStatusRunning = 2,
+    JYChatMessageAICellAnimationStatusFulfilled = 3,
+} JYChatMessageAICellAnimationStatus;
 
 @interface JYChatMessageAICell : UIView
 
-@property(nonatomic, assign) JYMessageAIModel model;
-
-- (void)refreshWithMessage:(JYMessageAI *_Nonnull)message;
+- (void)refreshWithModel:(JYMessageAIModel)model;
 
 - (void)appendThought:(NSString *_Nonnull)thought;
 - (void)finishAppendThought;
@@ -26,7 +30,7 @@
 @property(nonatomic, copy, nullable) void (^stopThoughtAnimationAction)(void);
 @property(nonatomic, copy, nullable) void (^startContentAnimationAction)(void);
 @property(nonatomic, copy, nullable) void (^stopContentAnimationAction)(void);
-@property(nonatomic, assign, readonly) JYSegmentedLabelAnimationStatus animationStatus;
+@property(nonatomic, assign, readonly) JYChatMessageAICellAnimationStatus animationStatus;
 
 - (void)startAnimation;
 

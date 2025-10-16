@@ -6,24 +6,20 @@
 //
 
 #import "JYHelper.h"
-#import <YYKit/YYKit.h>
+#import "JYMacro.h"
 
 @implementation JYHelper
 
-+ (NSString *)authorization {
-    return @"Bearer sat_H1Mqn84uMjTk2iodnjgmQd0HYrKYSvaoTNH0nXjNLO8gGt1o5CLvVkqyL9qNEWqW";
++ (NSString *)searchUrl {
+    return @"https://api.bubbclean.com/search";
 }
 
-+ (NSString *)workflowUrl {
-    return @"https://api.coze.cn/v1/workflow/stream_run";
++ (NSString *)webContentListUrl {
+    return @"https://api.bubbclean.com/web_content_list";
 }
 
-+ (NSString *)workflowId {
-    return @"7557225276296888329";
-}
-
-+ (NSString *)workflowVersion {
-    return @"v0.0.6";
++ (NSString *)aiModelUrl {
+    return @"https://api.bubbclean.com/ai_model";
 }
 
 @end
@@ -117,6 +113,63 @@
         length--;
     }
     return [self substringWithRange:NSMakeRange(0, length)];
+}
+
+- (NSString *)stringByRemovingInvisibleCharacters {
+    NSString *pattern = @"[\\u200b-\\u200f\\ufeff\\x00-\\x1f\\x7f]";
+    NSError *error = nil;
+    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:pattern options:0 error:&error];
+    if (error) {
+        return self;
+    }
+    
+    NSString *result = [regex stringByReplacingMatchesInString:self
+                                                       options:0
+                                                         range:NSMakeRange(0, self.length)
+                                                  withTemplate:@""];
+    return result;
+}
+
+@end
+
+@implementation EventSource (JYExtension)
+
+- (void)onMessage:(EventSourceEventHandler)onMessage
+          onClose:(EventSourceEventHandler)onClose
+          onError:(EventSourceEventHandler)onError {
+    [self onMessage:^(EventSourceEvent * _Nonnull event) {
+        if (![event.event isEqualToString:@"token_stat"]) {
+            NSLog(@"[jy] onMessage: \n"
+                  "event.id: %@ \n"
+                  "event.event: %@ \n"
+                  "event.data: %@", event.id, event.event, event.data);
+        }
+        JY_SAFE_BLOCK(onMessage, event);
+    }];
+    [self onClose:^(EventSourceEvent * _Nonnull event) {
+        NSLog(@"[jy] onClose: \n"
+              "event.id: %@ \n"
+              "event.event: %@ \n"
+              "event.data: %@", event.id, event.event, event.data);
+        JY_SAFE_BLOCK(onClose, event);
+    }];
+    [self onError:^(EventSourceEvent * _Nonnull event) {
+        NSLog(@"[jy] onError: \n"
+              "error: %@", event.error);
+        JY_SAFE_BLOCK(onError, event);
+    }];
+}
+
+@end
+
+@implementation NSError (JYExtension)
+
++ (NSError *)emptyResultError {
+    return [NSError errorWithDomain:@"JYChatErrorDomain"
+                               code:1
+                           userInfo:@{
+        NSLocalizedDescriptionKey: @"result is empty",
+    }];
 }
 
 @end

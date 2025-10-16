@@ -7,13 +7,13 @@
 
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
+#import <JYEventSource/EventSource.h>
 
 @interface JYHelper : NSObject
 
-+ (NSString *_Nonnull)authorization;
-+ (NSString *_Nonnull)workflowUrl;
-+ (NSString *_Nonnull)workflowId;
-+ (NSString *_Nonnull)workflowVersion;
++ (NSString *_Nonnull)searchUrl;
++ (NSString *_Nonnull)webContentListUrl;
++ (NSString *_Nonnull)aiModelUrl;
 
 @end
 
@@ -39,5 +39,21 @@
 
 - (NSString *_Nonnull)stringByTrimmingLeftCharactersInSet:(NSCharacterSet *_Nonnull)characterSet;
 - (NSString *_Nonnull)stringByTrimmingRightCharactersInSet:(NSCharacterSet *_Nonnull)characterSet;
+- (NSString *_Nonnull)stringByRemovingInvisibleCharacters;
+
+@end
+
+@interface EventSource (JYExtension)
+
+- (void)onMessage:(EventSourceEventHandler _Nullable)onMessage
+          onClose:(EventSourceEventHandler _Nullable)onClose
+          onError:(EventSourceEventHandler _Nullable)onError;
+
+@end
+
+
+@interface NSError (JYExtension)
+
++  (NSError *_Nonnull)emptyResultError;
 
 @end

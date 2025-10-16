@@ -10,8 +10,11 @@
 
 @interface JYChatMessageSearchCell : UIView
 
-- (void)refreshWithMessage:(JYMessageSearch *_Nonnull)message;
+@property(nonatomic, copy, nullable) void (^startAnimationAction)(void);
+@property(nonatomic, copy, nullable) void (^stopAnimationAction)(void);
 
-- (void)appendResult:(JYMessageSearchResult *_Nonnull)result;
+- (void)refreshWithEngine:(JYMessageSearchEngine)engine;
+
+- (void)setResultList:(NSArray<JYMessageSearchResult *> *_Nonnull)resultList;
 
 @end

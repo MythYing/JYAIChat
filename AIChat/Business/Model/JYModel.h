@@ -6,6 +6,7 @@
 //
 
 #import <Foundation/Foundation.h>
+#import <YYModel/YYModel.h>
 
 typedef enum : NSUInteger {
     JYMessageTypeUnknown = 0,
@@ -29,17 +30,9 @@ typedef enum : NSUInteger {
     JYMessageSearchEngineSogou = 3,
 } JYMessageSearchEngine;
 
-typedef enum : NSUInteger {
-    JYMessageStatusNone = 0,
-    JYMessageStatusWaiting = 1,
-    JYMessageStatusSearching = 2,
-    JYMessageStatusAIThinking = 3,
-    JYMessageStatusAIReplying = 4,
-    JYMessageStatusDone = 5,
-} JYMessageStatus;
-
-extern NSString * _Nonnull const JYMessageEventMessage;
-extern NSString * _Nonnull const JYMessageEventDone;
+extern NSString * _Nonnull const JYMessageEventThought;
+extern NSString * _Nonnull const JYMessageEventContent;
+extern NSString * _Nonnull const JYMessageEventError;
 
 extern NSString * _Nonnull const JYMessageTypeNameUser;
 extern NSString * _Nonnull const JYMessageTypeNameAI;
@@ -82,16 +75,11 @@ extern NSString * _Nonnull const JYMessageSearchEngineNameSogou;
 @interface JYMessageAI : JYMessage
 
 @property(nonatomic, assign) JYMessageAIModel model;
-@property(nonatomic, copy, nonnull) NSString *thoughtId;
 @property(nonatomic, copy, nonnull, readonly) NSString *thought;
-@property(nonatomic, copy, nonnull) NSString *contentId;
 @property(nonatomic, copy, nonnull, readonly) NSString *content;
 
 - (void)appendThought:(NSString *_Nonnull)thought;
 - (void)appendContent:(NSString *_Nonnull)content;
-
-+ (JYMessageAIModel)aiModelFromModelName:(NSString *_Nullable)modelName;
-+ (NSString *_Nonnull)modelDescriptionWithAIModel:(JYMessageAIModel)aiModel;
 
 @end
 
@@ -101,6 +89,7 @@ extern NSString * _Nonnull const JYMessageSearchEngineNameSogou;
 
 @property(nonatomic, copy, nonnull) NSString *title;
 @property(nonatomic, copy, nonnull) NSString *url;
+@property(nonatomic, copy, nonnull) NSString *content;
 
 @end
 
@@ -110,32 +99,27 @@ extern NSString * _Nonnull const JYMessageSearchEngineNameSogou;
 @property(nonatomic, assign) JYMessageSearchEngine engine;
 @property(nonatomic, copy, nonnull, readonly) NSArray<JYMessageSearchResult *> *resultList;
 
-- (void)appendResult:(JYMessageSearchResult *_Nonnull)result;
-
-+ (JYMessageSearchEngine)searchEngineFromEngineName:(NSString *_Nullable)engineName;
-+ (NSString *_Nonnull)engineDescriptionWithSearchEngine:(JYMessageSearchEngine)searchEngine;
+- (void)setResultList:(NSArray<JYMessageSearchResult *> *_Nonnull)resultList;
+- (void)refreshResult:(JYMessageSearchResult *_Nonnull)result;
 
 @end
 
-#pragma mark - JYCozeData
+#pragma mark - JYAIModelData
 
-@interface JYCozeData : NSObject
+@interface JYAIModelData : NSObject
 
-/// 输出节点的内容
 @property(nonatomic, copy, nonnull) NSString *content;
-/// 输出节点的内容类型，取值：text
-@property(nonatomic, copy, nonnull) NSString *content_type;
-/// 输出节点的类型，取值：Message、End
-@property(nonatomic, copy, nonnull) NSString *node_type;
-/// 输出节点的Id
-@property(nonatomic, copy, nonnull) NSString *node_id;
-/// 输出节点的标题，格式：大语言模型_是否深度思考_思考或内容
-@property(nonatomic, copy, nonnull) NSString *node_title;
-/// 输出节点的uuid，可作为消息的id
-@property(nonatomic, copy, nonnull) NSString *node_execute_uuid;
-/// 输出节点的序号
-@property(nonatomic, copy, nonnull) NSString *node_seq_id;
-/// 输出节点是否结束
-@property(nonatomic, assign) BOOL node_is_finish;
+@property(nonatomic, assign) BOOL isBegin;
+@property(nonatomic, assign) BOOL isEnd;
 
 @end
+
+#pragma mark - Transform
+
+extern JYMessageAIModel aiModel(NSString *_Nullable modelName);
+extern NSString *_Nonnull aiModelName(JYMessageAIModel model);
+extern NSString *_Nonnull aiModelDescription(JYMessageAIModel model);
+
+extern JYMessageSearchEngine searchEngine(NSString *_Nullable engineName);
+extern NSString *_Nonnull searchEngineName(JYMessageSearchEngine engine);
+extern NSString *_Nonnull searchEngineDescription(JYMessageSearchEngine engine);

@@ -37,7 +37,7 @@
         make.top.equalTo(self).inset(24);
         make.bottom.equalTo(self);
         make.trailing.equalTo(self).inset(24);
-        make.width.lessThanOrEqualTo(@(SCREEN_WIDTH - 24 - 100));
+        make.width.lessThanOrEqualTo(@(SCREEN_WIDTH - 24 - 60));
     }];
     [self.contentLabel mas_makeConstraints:^(MASConstraintMaker *make) {
         make.edges.equalTo(self.bubbleView).inset(12);

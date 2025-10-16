@@ -8,8 +8,11 @@
 #import <UIKit/UIKit.h>
 #import <QMUIKit/QMUIKit.h>
 #import <Masonry/Masonry.h>
-#import <YYKit/YYKit.h>
+#import <YYCategories/YYCategories.h>
+#import <YYModel/YYModel.h>
 #import "JYHelper.h"
+#import "YYThreadSafeArray.h"
+#import "YYThreadSafeDictionary.h"
 
 #ifndef JYMacro_h
 #define JYMacro_h

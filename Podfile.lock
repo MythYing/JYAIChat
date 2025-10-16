@@ -19,6 +19,15 @@ PODS:
     - Masonry
   - LookinServer (1.0.5)
   - Masonry (1.1.0)
+  - PromiseKit (8.2.0):
+    - PromiseKit/CorePromise (= 8.2.0)
+    - PromiseKit/Foundation (= 8.2.0)
+    - PromiseKit/UIKit (= 8.2.0)
+  - PromiseKit/CorePromise (8.2.0)
+  - PromiseKit/Foundation (8.2.0):
+    - PromiseKit/CorePromise
+  - PromiseKit/UIKit (8.2.0):
+    - PromiseKit/CorePromise
   - QMUIKit (4.8.0):
     - QMUIKit/QMUIComponents (= 4.8.0)
     - QMUIKit/QMUICore (= 4.8.0)
@@ -335,18 +344,21 @@ PODS:
     - QMUIKit/QMUILog
   - QMUIKit/QMUIResources (4.8.0)
   - QMUIKit/QMUIWeakObjectContainer (4.8.0)
-  - YYKit (1.0.9):
-    - YYKit/no-arc (= 1.0.9)
-  - YYKit/no-arc (1.0.9)
+  - YYCategories (1.0.4):
+    - YYCategories/no-arc (= 1.0.4)
+  - YYCategories/no-arc (1.0.4)
+  - YYModel (1.0.4)
 
 DEPENDENCIES:
   - AFNetworking (from `https://github.com/AFNetworking/AFNetworking.git`, tag `4.0.1`)
-  - JYEventSource (from `https://github.com/MythYing/JYEventSource.git`, tag `2.0.0`)
-  - JYSegmentedLabel (from `./../JYSegmentedLabel`)
+  - JYEventSource (from `https://github.com/MythYing/JYEventSource.git`, tag `2.0.1`)
+  - JYSegmentedLabel (from `https://github.com/MythYing/JYSegmentedLabel.git`, tag `1.0.0`)
   - LookinServer (from `https://github.com/QMUI/LookinServer.git`, tag `1.0.5`)
   - Masonry (from `https://github.com/SnapKit/Masonry.git`, tag `v1.1.0`)
+  - PromiseKit (from `https://github.com/mxcl/PromiseKit.git`, tag `8.2.0`)
   - QMUIKit (from `https://github.com/Tencent/QMUI_iOS.git`, tag `4.8.0`)
-  - YYKit (from `https://github.com/ibireme/YYKit.git`, tag `1.0.9`)
+  - YYCategories (from `https://github.com/ibireme/YYCategories.git`, tag `1.0.4`)
+  - YYModel (from `https://github.com/ibireme/YYModel.git`, tag `1.0.4`)
 
 EXTERNAL SOURCES:
   AFNetworking:
@@ -354,21 +366,28 @@ EXTERNAL SOURCES:
     :tag: 4.0.1
   JYEventSource:
     :git: https://github.com/MythYing/JYEventSource.git
-    :tag: 2.0.0
+    :tag: 2.0.1
   JYSegmentedLabel:
-    :path: "./../JYSegmentedLabel"
+    :git: https://github.com/MythYing/JYSegmentedLabel.git
+    :tag: 1.0.0
   LookinServer:
     :git: https://github.com/QMUI/LookinServer.git
     :tag: 1.0.5
   Masonry:
     :git: https://github.com/SnapKit/Masonry.git
     :tag: v1.1.0
+  PromiseKit:
+    :git: https://github.com/mxcl/PromiseKit.git
+    :tag: 8.2.0
   QMUIKit:
     :git: https://github.com/Tencent/QMUI_iOS.git
     :tag: 4.8.0
-  YYKit:
-    :git: https://github.com/ibireme/YYKit.git
-    :tag: 1.0.9
+  YYCategories:
+    :git: https://github.com/ibireme/YYCategories.git
+    :tag: 1.0.4
+  YYModel:
+    :git: https://github.com/ibireme/YYModel.git
+    :tag: 1.0.4
 
 CHECKOUT OPTIONS:
   AFNetworking:
@@ -376,19 +395,28 @@ CHECKOUT OPTIONS:
     :tag: 4.0.1
   JYEventSource:
     :git: https://github.com/MythYing/JYEventSource.git
-    :tag: 2.0.0
+    :tag: 2.0.1
+  JYSegmentedLabel:
+    :git: https://github.com/MythYing/JYSegmentedLabel.git
+    :tag: 1.0.0
   LookinServer:
     :git: https://github.com/QMUI/LookinServer.git
     :tag: 1.0.5
   Masonry:
     :git: https://github.com/SnapKit/Masonry.git
     :tag: v1.1.0
+  PromiseKit:
+    :git: https://github.com/mxcl/PromiseKit.git
+    :tag: 8.2.0
   QMUIKit:
     :git: https://github.com/Tencent/QMUI_iOS.git
     :tag: 4.8.0
-  YYKit:
-    :git: https://github.com/ibireme/YYKit.git
-    :tag: 1.0.9
+  YYCategories:
+    :git: https://github.com/ibireme/YYCategories.git
+    :tag: 1.0.4
+  YYModel:
+    :git: https://github.com/ibireme/YYModel.git
+    :tag: 1.0.4
 
 SPEC CHECKSUMS:
   AFNetworking: 7864c38297c79aaca1500c33288e429c3451fdce
@@ -396,9 +424,11 @@ SPEC CHECKSUMS:
   JYSegmentedLabel: f233c3bb52bfc4e7010905f26121410c7dd348c9
   LookinServer: 3d9a02529ed94a6a08154440c26f6d7f453bb1e7
   Masonry: 890751a1008d6f33a97b032f4ecad4870d7eed3a
+  PromiseKit: c1998741fd1c181e06b385b421d9f45a296fe7a7
   QMUIKit: 3c622fe3c55c0dccfad750634bd9ee5e7ade9a53
-  YYKit: 7cda43304a8dc3696c449041e2cb3107b4e236e7
+  YYCategories: 6bcd4314c6661a561410dce4a793379ebd306abd
+  YYModel: 2a7fdd96aaa4b86a824e26d0c517de8928c04b30
 
-PODFILE CHECKSUM: f05c4c969d7b7a73d35df89721d109e5159c4443
+PODFILE CHECKSUM: 4c88cc81a6f4c5c221ac48508eb5137a10ebf391
 
 COCOAPODS: 1.15.2

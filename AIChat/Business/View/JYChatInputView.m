@@ -11,6 +11,8 @@
 @interface JYChatInputView () <UITextViewDelegate>
 
 @property(nonatomic, strong) UIView *topLineView;
+@property(nonatomic, strong) UILabel *placeholderLabel;
+@property(nonatomic, strong) UILabel *placeholderLoadingLabel;
 @property(nonatomic, strong) UIView *optionListView;
 @property(nonatomic, strong) UIView *keyboardPlaceholderView;
 @property(nonatomic, strong) UIView *bottomPlaceholderView;
@@ -18,6 +20,8 @@
 @property(nonatomic, assign) CGFloat textViewHeight;
 @property(nonatomic, assign) CGFloat keyboardPlaceholderHeight;
 @property(nonatomic, assign) CGFloat bottomPlaceholderHeight;
+
+@property(nonatomic, strong) NSTimer *timer;
 
 @end
 
@@ -32,6 +36,7 @@
         _textViewHeight = 44;
         _keyboardPlaceholderHeight = 0;
         _bottomPlaceholderHeight = 34;
+        _placeholder = @"";
         [self setupUI];
     }
     return self;
@@ -47,6 +52,7 @@
     [self addSubview:self.topLineView];
     [self addSubview:self.textView];
     [self addSubview:self.placeholderLabel];
+    [self addSubview:self.placeholderLoadingLabel];
     [self addSubview:self.optionListView];
     [self addSubview:self.keyboardPlaceholderView];
     [self addSubview:self.bottomPlaceholderView];
@@ -65,11 +71,16 @@
     }];
     [self.placeholderLabel mas_makeConstraints:^(MASConstraintMaker *make) {
         make.top.equalTo(self.textView);
-        make.leading.trailing.equalTo(self.textView).inset(12);
+        make.leading.equalTo(self.textView).inset(12);
         make.height.equalTo(@44);
     }];
+    [self.placeholderLoadingLabel mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.top.bottom.equalTo(self.placeholderLabel);
+        make.leading.equalTo(self.placeholderLabel.mas_trailing);
+        make.trailing.lessThanOrEqualTo(self.textView).inset(12);
+    }];
     [self.optionListView mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.leading.trailing.equalTo(self).inset(16);
+        make.leading.trailing.equalTo(self).inset(24);
         make.top.equalTo(self.textView.mas_bottom).offset(8);
         make.height.equalTo(@24);
     }];
@@ -111,14 +122,46 @@
     }
 }
 
+#pragma mark - Placeholder Loading
+
+- (void)startPlaceholderLoading {
+    if (self.timer) {
+        [self.timer invalidate];
+        self.timer = nil;
+    }
+    self.placeholderLoadingLabel.text = @"";
+    @weakify(self);
+    self.timer = [NSTimer timerWithTimeInterval:0.3 repeats:YES block:^(NSTimer * _Nonnull timer) {
+        @strongify(self);
+        NSString *text = self.placeholderLoadingLabel.text ?: @"";
+        if (text.length >= 3) {
+            text = @"";
+        } else {
+            text = [text stringByAppendingString:@"."];
+        }
+        self.placeholderLoadingLabel.text = text;
+    }];
+    [[NSRunLoop mainRunLoop] addTimer:self.timer forMode:NSRunLoopCommonModes];
+}
+
+- (void)stopPlaceholderLoading {
+    if (self.timer) {
+        [self.timer invalidate];
+        self.timer = nil;
+    }
+    self.placeholderLoadingLabel.text = @"";
+}
+
 #pragma mark - UITextViewDelegate
 
 - (void)textViewDidBeginEditing:(UITextView *)textView {
     self.placeholderLabel.hidden = YES;
+    self.placeholderLoadingLabel.hidden = self.placeholderLabel.hidden;
 }
 
 - (void)textViewDidEndEditing:(UITextView *)textView {
     self.placeholderLabel.hidden = self.textView.text.length > 0;
+    self.placeholderLoadingLabel.hidden = self.placeholderLabel.hidden;
 }
 
 - (void)textViewDidChange:(UITextView *)textView {
@@ -132,6 +175,7 @@
         [self.textView setNeedsUpdateConstraints];
     }
     self.placeholderLabel.hidden = self.textView.text.length > 0 || self.textView.isFirstResponder;
+    self.placeholderLoadingLabel.hidden = self.placeholderLabel.hidden;
 }
 
 - (BOOL)textView:(UITextView *)textView shouldChangeTextInRange:(NSRange)range replacementText:(NSString *)text {
@@ -161,8 +205,7 @@
 }
 
 - (void)handleKeyboardWithEndFrameHeight:(CGFloat)endFrameHeight {
-    CGFloat bottomInset = JYUIHelper.getKeyWindow.safeAreaInsets.bottom;
-    CGFloat height = fmax(endFrameHeight - bottomInset, 0);
+    CGFloat height = fmax(endFrameHeight - self.bottomPlaceholderHeight, 0);
     if (self.keyboardPlaceholderHeight != height) {
         self.keyboardPlaceholderHeight = height;
         [UIView animateWithDuration:0.25 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
@@ -174,7 +217,7 @@
     }
 }
 
-#pragma mark - Getter
+#pragma mark - Getter & Setter
 
 - (UIView *)topLineView {
     if (_topLineView == nil) {
@@ -220,6 +263,17 @@
         _placeholderLabel = label;
     }
     return _placeholderLabel;
+}
+
+- (UILabel *)placeholderLoadingLabel {
+    if (_placeholderLoadingLabel == nil) {
+        UILabel *label = [[UILabel alloc] init];
+        label.font = [UIFont systemFontOfSize:14];
+        label.textColor = UIColor.placeholderColor;
+        label.text = @"";
+        _placeholderLoadingLabel = label;
+    }
+    return _placeholderLoadingLabel;
 }
 
 - (UIView *)optionListView {
@@ -274,6 +328,11 @@
         _bottomPlaceholderView = view;
     }
     return _bottomPlaceholderView;
+}
+
+- (void)setPlaceholder:(NSString *)placeholder {
+    _placeholder = [placeholder copy];
+    self.placeholderLabel.text = placeholder;
 }
 
 @end

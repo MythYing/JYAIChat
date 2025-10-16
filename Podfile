@@ -4,9 +4,13 @@ platform :ios, '15.6'
 # use_frameworks!
 
 target 'AIChat' do
-    pod 'YYKit',
-      :git => 'https://github.com/ibireme/YYKit.git',
-      :tag => '1.0.9'
+    pod 'YYCategories',
+      :git => 'https://github.com/ibireme/YYCategories.git',
+      :tag => '1.0.4'
+      
+    pod 'YYModel',
+      :git => 'https://github.com/ibireme/YYModel.git',
+      :tag => '1.0.4'
 
     pod 'Masonry',
       :git => 'https://github.com/SnapKit/Masonry.git',
@@ -15,6 +19,10 @@ target 'AIChat' do
     pod 'AFNetworking',
       :git => 'https://github.com/AFNetworking/AFNetworking.git',
       :tag => '4.0.1'
+      
+    pod 'PromiseKit',
+      :git => 'https://github.com/mxcl/PromiseKit.git',
+      :tag => '8.2.0'
 
 #    pod 'NORMarkdownParser',
 #      :git => 'https://github.com/MythYing/NORMarkdownParser.git',
@@ -42,10 +50,14 @@ target 'AIChat' do
 
     pod 'JYEventSource',
       :git => 'https://github.com/MythYing/JYEventSource.git',
-      :tag => '2.0.0'
-
+      :tag => '2.0.1'
+      
     pod 'JYSegmentedLabel',
-      :path => './../JYSegmentedLabel'
+      :git => 'https://github.com/MythYing/JYSegmentedLabel.git',
+      :tag => '1.0.0'
+
+#    pod 'JYSegmentedLabel',
+#      :path => './../JYSegmentedLabel'
 
 #    pod 'JYEventSource',
 #      :path => './../JYEventSource'

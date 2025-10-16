@@ -11,10 +11,13 @@
 @interface JYChatInputView : UIView
 
 @property(nonatomic, strong, nonnull) UITextView *textView;
-@property(nonatomic, strong, nonnull) UILabel *placeholderLabel;
 @property(nonatomic, strong, nonnull) JYChatInputOptionView *deepThinkingOptionView;
 @property(nonatomic, strong, nonnull) JYChatInputOptionView *onlineSearchOptionView;
 
+@property(nonatomic, copy, nullable) NSString *placeholder;
 @property(nonatomic, copy, nullable) void (^sendAction)(void);
+
+- (void)startPlaceholderLoading;
+- (void)stopPlaceholderLoading;
 
 @end

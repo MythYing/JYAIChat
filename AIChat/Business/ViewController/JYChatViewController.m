@@ -8,12 +8,77 @@
 #import "JYChatViewController.h"
 #import "JYMacro.h"
 #import "JYModel.h"
+#import "JYPromiseHelper.h"
 #import "JYChatNavigationBar.h"
 #import "JYChatInputView.h"
 #import "JYChatMessageUserCell.h"
 #import "JYChatMessageAICell.h"
 #import "JYChatMessageSearchCell.h"
 #import <JYEventSource/EventSource.h>
+#import <PromiseKit/PromiseKit.h>
+
+#pragma mark - JYWorkFlowStatus
+
+typedef enum : NSUInteger {
+    JYWorkFlowNodeStatusPending = 0,
+    JYWorkFlowNodeStatusRunning,
+    JYWorkFlowNodeStatusFulfilled,
+    JYWorkFlowNodeStatusRejected,
+    JYWorkFlowNodeStatusSkipped,
+} JYWorkFlowNodeStatus;
+
+@interface JYWorkFlowStatus : NSObject
+
+@property(nonatomic, assign) JYWorkFlowNodeStatus initStatus;
+@property(nonatomic, assign) JYWorkFlowNodeStatus requestSearchKeyword;
+@property(nonatomic, assign) JYWorkFlowNodeStatus requestSearchSogou;
+@property(nonatomic, assign) JYWorkFlowNodeStatus requestWebContentSogou;
+@property(nonatomic, assign) JYWorkFlowNodeStatus requestSearchToutiao;
+@property(nonatomic, assign) JYWorkFlowNodeStatus requestWebContentToutiao;
+@property(nonatomic, assign) JYWorkFlowNodeStatus generatePrompt;
+@property(nonatomic, assign) JYWorkFlowNodeStatus requestReplyDeepseek;
+@property(nonatomic, assign) JYWorkFlowNodeStatus requestReplyDoubao;
+@property(nonatomic, assign) JYWorkFlowNodeStatus requestReplyHunyuan;
+@property(nonatomic, assign) JYWorkFlowNodeStatus requestReplyMixed;
+
+@property(nonatomic, assign) JYWorkFlowNodeStatus uiSearchSogou;
+@property(nonatomic, assign) JYWorkFlowNodeStatus uiSearchToutiao;
+@property(nonatomic, assign) JYWorkFlowNodeStatus uiReplyDeepseek;
+@property(nonatomic, assign) JYWorkFlowNodeStatus uiReplyDoubao;
+@property(nonatomic, assign) JYWorkFlowNodeStatus uiReplyHunyuan;
+@property(nonatomic, assign) JYWorkFlowNodeStatus uiReplyMixed;
+
+@property(nonatomic, assign) BOOL enableDeepThinking;
+@property(nonatomic, assign) BOOL enableOnlineSearch;
+@property(nonatomic, copy) NSString *query;
+@property(nonatomic, copy) NSString *searchKeyword;
+@property(nonatomic, copy) NSString *prompt;
+
+@property(nonatomic, strong) JYMessageSearch *searchMessageSogou;
+@property(nonatomic, strong) JYMessageSearch *searchMessageToutiao;
+@property(nonatomic, strong) JYMessageAI *aiMessageDeepseek;
+@property(nonatomic, strong) JYMessageAI *aiMessageDoubao;
+@property(nonatomic, strong) JYMessageAI *aiMessageHunyuan;
+@property(nonatomic, strong) JYMessageAI *aiMessageMixed;
+
+@property(nonatomic, strong) JYChatMessageSearchCell *searchCellSogou;
+@property(nonatomic, strong) JYChatMessageSearchCell *searchCellToutiao;
+@property(nonatomic, strong) JYChatMessageAICell *aiCellDeepseek;
+@property(nonatomic, strong) JYChatMessageAICell *aiCellDoubao;
+@property(nonatomic, strong) JYChatMessageAICell *aiCellHunyuan;
+@property(nonatomic, strong) JYChatMessageAICell *aiCellMixed;
+
+@end
+
+@implementation JYWorkFlowStatus
+
+@end
+
+static BOOL isEnded(JYWorkFlowNodeStatus status) {
+    return status == JYWorkFlowNodeStatusFulfilled || status == JYWorkFlowNodeStatusRejected || status == JYWorkFlowNodeStatusSkipped;
+}
+
+#pragma mark - JYChatViewController
 
 @interface JYChatViewController ()
 
@@ -23,24 +88,9 @@
 @property(nonatomic, strong) UIStackView *stackView;
 @property(nonatomic, strong) UILabel *titleLabel;
 
-@property(nonatomic, copy) YYThreadSafeArray *messageList;
-@property(nonatomic, strong) EventSource *eventSource;
-
 @property(nonatomic, assign) BOOL didFirstViewDidAppear;
 
-@property(nonatomic, assign) JYMessageStatus status;
-@property(nonatomic, copy) NSString *statusString;
-@property(nonatomic, copy) NSString *loadingString;
-
-@property(nonatomic, assign) BOOL didFinishReceive;
-
-@property(nonatomic, strong) YYThreadSafeDictionary *searchMessageDic;
-@property(nonatomic, strong) YYThreadSafeDictionary *searchCellDic;
-
-@property(nonatomic, strong) YYThreadSafeDictionary *aiMessageDic;
-@property(nonatomic, strong) YYThreadSafeDictionary *aiCellDic;
-
-@property(nonatomic, strong) YYThreadSafeArray *aiCellAnimationQueue;
+@property(nonatomic, strong) JYWorkFlowStatus *workFlowStatus;
 @property(nonatomic, strong) NSTimer *scrollTimer;
 
 @end
@@ -53,12 +103,7 @@
 {
     self = [super init];
     if (self) {
-        _messageList = [YYThreadSafeArray array];
-        _searchMessageDic = [YYThreadSafeDictionary dictionary];
-        _searchCellDic = [YYThreadSafeDictionary dictionary];
-        _aiMessageDic = [YYThreadSafeDictionary dictionary];
-        _aiCellDic = [YYThreadSafeDictionary dictionary];
-        _aiCellAnimationQueue = [YYThreadSafeArray array];
+        _workFlowStatus = [[JYWorkFlowStatus alloc] init];
     }
     return self;
 }
@@ -115,7 +160,8 @@
         make.centerY.equalTo(self.scrollView);
     }];
     
-    [self setStatus:JYMessageStatusNone prefix:@""];
+    self.inputView.placeholder = @"请输入文字进行提问";
+    [self.inputView stopPlaceholderLoading];
     
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self startTitleAnimationWithLength:0];
@@ -148,198 +194,476 @@
     JYMessageUser *userMessage = [[JYMessageUser alloc] init];
     userMessage.contentId = [NSUUID UUID].UUIDString.lowercaseString;
     userMessage.content = text;
-    [self.messageList appendObject:userMessage];
     JYChatMessageUserCell *cell = [[JYChatMessageUserCell alloc] init];
     [cell refreshWithMessage:userMessage];
     [self.stackView addArrangedSubview:cell];
-    [self setStatus:JYMessageStatusWaiting prefix:@""];
+    self.inputView.placeholder = @"等待响应中";
+    [self.inputView startPlaceholderLoading];
     [self startScrollTimer];
     
-    // 消息和视图Dic置空
-    [self.searchMessageDic removeAllObjects];
-    [self.searchCellDic removeAllObjects];
-    [self.aiMessageDic removeAllObjects];
-    [self.aiCellDic removeAllObjects];
-    [self.aiCellAnimationQueue removeAllObjects];
-    self.didFinishReceive = NO;
-    
-    if (self.eventSource) {
-        EventSource *eventSource = self.eventSource;
-        self.eventSource = nil;
-        [eventSource close];
-    }
-    
-    EventSourceConfig *config = [[EventSourceConfig alloc] init];
-    config.url = [NSURL URLWithString:JYHelper.workflowUrl];
-    config.method = @"POST";
-    config.headers = @{
-        @"Authorization": JYHelper.authorization,
-        @"Content-Type": @"application/json",
-    };
-    config.body = @{
-        @"workflow_id": JYHelper.workflowId,
-        @"workflow_version": JYHelper.workflowVersion,
-        @"parameters": @{
-            @"query": text ?: @"",
-            @"enableDeepThinking": @(self.inputView.deepThinkingOptionView.isSelected),
-            @"enableOnlineSearch": @(self.inputView.onlineSearchOptionView.isSelected),
-        }
-    }.jsonStringEncoded.dataValue;
-    self.eventSource = [[EventSource alloc] initWithConfig:config];
-    @weakify(self);
-    [self.eventSource onMessage:^(EventSourceEvent *event) {
-        @strongify(self);
-        [self onSSEMessage:event];
-    }];
-    [self.eventSource onError:^(EventSourceEvent *event) {
-        @strongify(self);
-        if (self.eventSource) {
-            [self.eventSource close];
-            self.eventSource = nil;
-            NSLog(@"[jy] SSE Error: \n event.error: %@", event.error);
-        }
-    }];
+    self.workFlowStatus = [[JYWorkFlowStatus alloc] init];
+    self.workFlowStatus.enableDeepThinking = self.inputView.deepThinkingOptionView.isSelected;
+    self.workFlowStatus.enableOnlineSearch = self.inputView.onlineSearchOptionView.isSelected;
+    self.workFlowStatus.query = text;
+    [self workFlowStatusDidUpdate];
 }
 
-- (void)onSSEMessage:(EventSourceEvent *)event {
-    NSLog(@"[jy] SSE Message: \n event.id: %@ \n event.event: %@ \n event.data: %@", event.id, event.event, event.data);
-    if ([event.event isEqualToString:JYMessageEventDone]) {
-        self.didFinishReceive = YES;
+- (void)workFlowStatusDidUpdate {
+    if (self.workFlowStatus.initStatus == JYWorkFlowNodeStatusPending) {
+        self.workFlowStatus.initStatus = JYWorkFlowNodeStatusRunning;
+        [self workFlowStatusDidUpdate];
         
-        EventSource *eventSource = self.eventSource;
-        self.eventSource = nil;
-        [eventSource close];
-    } else if ([event.event isEqualToString:JYMessageEventMessage]) {
-        JYCozeData *data = [JYCozeData modelWithJSON:event.data];
-        NSArray<NSString *> *arr = [data.node_title componentsSeparatedByString:@"_"];
-        if (arr.count == 2 && [arr[0] isEqualToString:JYMessageTypeNameSearch]) {
-            JYMessageSearchEngine engine = [JYMessageSearch searchEngineFromEngineName:arr[1]];
+        if (!self.workFlowStatus.enableOnlineSearch) {
+            self.workFlowStatus.requestSearchKeyword = JYWorkFlowNodeStatusSkipped;
+            self.workFlowStatus.requestSearchSogou = JYWorkFlowNodeStatusSkipped;
+            self.workFlowStatus.requestWebContentSogou = JYWorkFlowNodeStatusSkipped;
+            self.workFlowStatus.requestSearchToutiao = JYWorkFlowNodeStatusSkipped;
+            self.workFlowStatus.requestWebContentToutiao = JYWorkFlowNodeStatusSkipped;
+        }
+        
+        self.workFlowStatus.initStatus = JYWorkFlowNodeStatusFulfilled;
+        [self workFlowStatusDidUpdate];
+    }
+    
+    if (self.workFlowStatus.initStatus == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestSearchKeyword == JYWorkFlowNodeStatusPending) {
+        self.workFlowStatus.requestSearchKeyword = JYWorkFlowNodeStatusRunning;
+        [self workFlowStatusDidUpdate];
+        
+        [JYPromiseHelper.sharedInstance requestSearchKeywordWithQuery:self.workFlowStatus.query].then(^(NSString *searchKeyword) {
+            NSLog(@"[jy] WorkFlow requestSearchKeyword searchKeyword: %@", searchKeyword);
+            self.workFlowStatus.searchKeyword = searchKeyword;
             
-            if (self.searchMessageDic[@(engine)] == nil) {
-                JYMessageSearch *newMessage = [[JYMessageSearch alloc] init];
-                newMessage.engine = engine;
-                self.searchMessageDic[@(engine)] = newMessage;
-                [self.messageList appendObject:newMessage];
-                
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    JYChatMessageSearchCell *cell = [[JYChatMessageSearchCell alloc] init];
-                    [cell refreshWithMessage:newMessage];
-                    self.searchCellDic[@(engine)] = cell;
-                    
-                    [self.stackView addArrangedSubview:cell];
-                    [self setStatus:JYMessageStatusSearching prefix:[JYMessageSearch engineDescriptionWithSearchEngine:newMessage.engine]];
-                });
-            }
-            JYMessageSearch *searchMessage = self.searchMessageDic[@(engine)];
-            JYMessageSearchResult *result = [JYMessageSearchResult modelWithJSON:data.content];
-            if (result.title.length == 0) {
-                return;
-            }
-            [searchMessage appendResult:result];
-            dispatch_async(dispatch_get_main_queue(), ^{
-                JYChatMessageSearchCell *searchCell = self.searchCellDic[@(engine)];
-                [searchCell appendResult:result];
-            });
-        } else if (arr.count == 4 || [arr[0] isEqualToString:JYMessageTypeNameAI]) {
-            JYMessageAIModel aiModel = [JYMessageAI aiModelFromModelName:arr[2]];
-            BOOL isContent = [arr[3] isEqualToString:JYMessageOutputContent];
+            self.workFlowStatus.requestSearchKeyword = JYWorkFlowNodeStatusFulfilled;
+            [self workFlowStatusDidUpdate];
+        }).catch(^(NSError *error) {
+            NSLog(@"[jy] WorkFlow requestSearchKeyword error: %@", error);
             
-            if (self.aiMessageDic[@(aiModel)] == nil) {
-                JYMessageAI *newMessage = [[JYMessageAI alloc] init];
-                newMessage.model = aiModel;
-                self.aiMessageDic[@(aiModel)] = newMessage;
-                [self.messageList appendObject:newMessage];
-                
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    JYChatMessageAICell *cell = [[JYChatMessageAICell alloc] init];
-                    [cell refreshWithMessage:newMessage];
-                    self.aiCellDic[@(aiModel)] = cell;
-                    
-                    [self.aiCellAnimationQueue appendObject:cell];
-                    [self tryDequeueCellAnimation];
-                });
+            self.workFlowStatus.requestSearchKeyword = JYWorkFlowNodeStatusRejected;
+            [self workFlowStatusDidUpdate];
+        });
+    }
+    
+    if (self.workFlowStatus.requestSearchKeyword == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestSearchSogou == JYWorkFlowNodeStatusPending) {
+        self.workFlowStatus.requestSearchSogou = JYWorkFlowNodeStatusRunning;
+        [self workFlowStatusDidUpdate];
+        
+        [JYPromiseHelper.sharedInstance requestSearchWithKeyword:self.workFlowStatus.searchKeyword engine:JYMessageSearchEngineSogou].then(^(NSArray<JYMessageSearchResult *> *resultList) {
+            NSLog(@"[jy] WorkFlow requestSearchSogou resultList: %@", resultList.yy_modelToJSONString);
+            JYMessageSearch *message = [[JYMessageSearch alloc] init];
+            message.engine = JYMessageSearchEngineSogou;
+            [message setResultList:resultList];
+            self.workFlowStatus.searchMessageSogou = message;
+            
+            self.workFlowStatus.requestSearchSogou = JYWorkFlowNodeStatusFulfilled;
+            [self workFlowStatusDidUpdate];
+        }).catch(^(NSError *error) {
+            NSLog(@"[jy] WorkFlow requestSearchSogou error: %@", error);
+            
+            self.workFlowStatus.requestSearchSogou = JYWorkFlowNodeStatusRejected;
+            [self workFlowStatusDidUpdate];
+        });
+    }
+    
+    if (self.workFlowStatus.requestSearchKeyword == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestSearchToutiao == JYWorkFlowNodeStatusPending) {
+        self.workFlowStatus.requestSearchToutiao = JYWorkFlowNodeStatusRunning;
+        [self workFlowStatusDidUpdate];
+        
+        [JYPromiseHelper.sharedInstance requestSearchWithKeyword:self.workFlowStatus.searchKeyword engine:JYMessageSearchEngineToutiao].then(^(NSArray<JYMessageSearchResult *> *resultList) {
+            NSLog(@"[jy] WorkFlow requestSearchToutiao resultList: %@", resultList.yy_modelToJSONString);
+            JYMessageSearch *message = [[JYMessageSearch alloc] init];
+            message.engine = JYMessageSearchEngineToutiao;
+            [message setResultList:resultList];
+            self.workFlowStatus.searchMessageToutiao = message;
+            
+            self.workFlowStatus.requestSearchToutiao = JYWorkFlowNodeStatusFulfilled;
+            [self workFlowStatusDidUpdate];
+        }).catch(^(NSError *error) {
+            NSLog(@"[jy] WorkFlow requestSearchToutiao error: %@", error);
+            
+            self.workFlowStatus.requestSearchToutiao = JYWorkFlowNodeStatusRejected;
+            [self workFlowStatusDidUpdate];
+        });
+    }
+    
+    if (self.workFlowStatus.requestSearchSogou == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestWebContentSogou == JYWorkFlowNodeStatusPending) {
+        self.workFlowStatus.requestWebContentSogou = JYWorkFlowNodeStatusRunning;
+        [self workFlowStatusDidUpdate];
+        
+        NSArray<NSString *> *urlList = [self.workFlowStatus.searchMessageSogou.resultList qmui_mapWithBlock:^id _Nonnull(JYMessageSearchResult *result, NSInteger index) {
+            return result.url ?: @"";
+        }];
+        [JYPromiseHelper.sharedInstance requestWebContentListWithUrlList:urlList].then(^(NSArray<JYMessageSearchResult *> *resultList) {
+            for (JYMessageSearchResult *result in resultList) {
+                JYMessageSearchResult *originResult = [self.workFlowStatus.searchMessageSogou.resultList qmui_firstMatchWithBlock:^BOOL(JYMessageSearchResult * _Nonnull item) {
+                    return [item.url isEqualToString:result.url];
+                }];
+                if (originResult) {
+                    originResult.content = result.content;
+                }
             }
-            JYMessageAI *aiMessage = self.aiMessageDic[@(aiModel)];
-            if (!isContent) {
-                BOOL isBegin = aiMessage.thought.length == 0;
-                BOOL isEnd = data.node_is_finish;
-                if (aiMessage.thoughtId.length == 0) {
-                    aiMessage.thoughtId = data.node_execute_uuid;
+            NSLog(@"[jy] WorkFlow requestWebContentSogou message: %@", self.workFlowStatus.searchMessageSogou.resultList.yy_modelToJSONString);
+            
+            self.workFlowStatus.requestWebContentSogou = JYWorkFlowNodeStatusFulfilled;
+            [self workFlowStatusDidUpdate];
+        }).catch(^(NSError *error) {
+            NSLog(@"[jy] WorkFlow requestWebContentSogou error: %@", error);
+            
+            self.workFlowStatus.requestWebContentSogou = JYWorkFlowNodeStatusRejected;
+            [self workFlowStatusDidUpdate];
+        });
+    }
+    
+    if (self.workFlowStatus.requestSearchToutiao == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestWebContentToutiao == JYWorkFlowNodeStatusPending) {
+        self.workFlowStatus.requestWebContentToutiao = JYWorkFlowNodeStatusRunning;
+        [self workFlowStatusDidUpdate];
+        
+        NSArray<NSString *> *urlList = [self.workFlowStatus.searchMessageToutiao.resultList qmui_mapWithBlock:^id _Nonnull(JYMessageSearchResult *result, NSInteger index) {
+            return result.url ?: @"";
+        }];
+        [JYPromiseHelper.sharedInstance requestWebContentListWithUrlList:urlList].then(^(NSArray<JYMessageSearchResult *> *resultList) {
+            for (JYMessageSearchResult *result in resultList) {
+                JYMessageSearchResult *originResult = [self.workFlowStatus.searchMessageToutiao.resultList qmui_firstMatchWithBlock:^BOOL(JYMessageSearchResult * _Nonnull item) {
+                    return [item.url isEqualToString:result.url];
+                }];
+                if (originResult) {
+                    originResult.content = result.content;
                 }
-                NSString *thought = data.content ?: @"";
-                if (isBegin) {
-                    thought = [thought stringByTrimmingLeftCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-                }
-                if (isEnd) {
-                    thought = [thought stringByTrimmingRightCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-                }
-                [aiMessage appendThought:thought];
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    JYChatMessageAICell *aiCell = self.aiCellDic[@(aiModel)];
-                    [aiCell appendThought:thought];
-                    if (isEnd) {
-                        [aiCell finishAppendThought];
-                    }
-                });
-            } else {
-                BOOL isBegin = aiMessage.content.length == 0;
-                BOOL isEnd = data.node_is_finish;
-                if (aiMessage.contentId.length == 0) {
-                    aiMessage.contentId = data.node_execute_uuid;
-                }
-                NSString *content = data.content ?: @"";
-                if (isBegin) {
-                    content = [content stringByTrimmingLeftCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-                }
-                if (isEnd) {
-                    content = [content stringByTrimmingRightCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-                }
-                [aiMessage appendContent:content];
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    JYChatMessageAICell *aiCell = self.aiCellDic[@(aiModel)];
-                    [aiCell appendContent:content];
-                    if (isEnd) {
-                        [aiCell finishAppendContent];
-                    }
-                });
             }
+            NSLog(@"[jy] WorkFlow requestWebContentToutiao message: %@", self.workFlowStatus.searchMessageToutiao.resultList.yy_modelToJSONString);
+            
+            self.workFlowStatus.requestWebContentToutiao = JYWorkFlowNodeStatusFulfilled;
+            [self workFlowStatusDidUpdate];
+        }).catch(^(NSError *error) {
+            NSLog(@"[jy] WorkFlow requestWebContentToutiao error: %@", error);
+            
+            self.workFlowStatus.requestWebContentToutiao = JYWorkFlowNodeStatusRejected;
+            [self workFlowStatusDidUpdate];
+        });
+    }
+    
+    if (isEnded(self.workFlowStatus.requestSearchSogou) && isEnded(self.workFlowStatus.requestSearchToutiao) && self.workFlowStatus.generatePrompt == JYWorkFlowNodeStatusPending) {
+        BOOL isSearchFulfilled = (self.workFlowStatus.requestSearchSogou == JYWorkFlowNodeStatusFulfilled || self.workFlowStatus.requestSearchToutiao == JYWorkFlowNodeStatusFulfilled);
+        if (self.workFlowStatus.enableOnlineSearch && isSearchFulfilled) {
+            NSMutableString *reference = [NSMutableString string];
+            self.workFlowStatus.generatePrompt = JYWorkFlowNodeStatusRunning;
+            [self workFlowStatusDidUpdate];
+            
+            for (JYMessageSearchResult *result in self.workFlowStatus.searchMessageSogou.resultList) {
+                if (result.title.length == 0 || result.url.length == 0 || result.content.length == 0) {
+                    continue;
+                }
+                [reference appendFormat:@"## %@""\n""%@""\n", result.title, result.content];
+            }
+            for (JYMessageSearchResult *result in self.workFlowStatus.searchMessageToutiao.resultList) {
+                if (result.title.length == 0 || result.url.length == 0 || result.content.length == 0) {
+                    continue;
+                }
+                [reference appendFormat:@"## %@""\n""%@""\n", result.title, result.content];
+            }
+            NSString *prompt = [NSString stringWithFormat:@"# 角色""\n"
+                                "你是一个专业的AI问答助手，请根据问题回答，以下会给你一些参考资料。""\n"
+                                "# 问题""\n"
+                                "%@""\n"
+                                "# 参考资料""\n"
+                                "%@""\n", self.workFlowStatus.query ?: @"", reference];
+            self.workFlowStatus.prompt = prompt;
+            
+            self.workFlowStatus.generatePrompt = JYWorkFlowNodeStatusFulfilled;
+            [self workFlowStatusDidUpdate];
+        }
+        
+        if (!self.workFlowStatus.enableOnlineSearch) {
+            self.workFlowStatus.generatePrompt = JYWorkFlowNodeStatusRunning;
+            [self workFlowStatusDidUpdate];
+            
+            NSString *prompt = [NSString stringWithFormat:@"# 角色""\n"
+                                "你是一个专业的AI问答助手，请根据问题回答。""\n"
+                                "# 问题""\n"
+                                "%@""\n"
+                                "# 参考资料""\n", self.workFlowStatus.query ?: @""];
+            self.workFlowStatus.prompt = prompt;
+            NSLog(@"[jy] WorkFlow generatePrompt prompt: %@", prompt);
+            
+            self.workFlowStatus.generatePrompt = JYWorkFlowNodeStatusFulfilled;
+            [self workFlowStatusDidUpdate];
         }
     }
-}
-
-- (void)tryDequeueCellAnimation {
-    JYChatMessageAICell *animatingCell = [self.aiCellAnimationQueue qmui_firstMatchWithBlock:^BOOL(JYChatMessageAICell *_Nonnull item) {
-        return item.animationStatus == JYSegmentedLabelAnimationStatusAnimating;
-    }];
-    if (animatingCell) {
-        return;
+    
+    if (self.workFlowStatus.generatePrompt == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestReplyDeepseek == JYWorkFlowNodeStatusPending) {
+        self.workFlowStatus.requestReplyDeepseek = JYWorkFlowNodeStatusRunning;
+        [self workFlowStatusDidUpdate];
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            JYMessageAI *message = [[JYMessageAI alloc] init];
+            message.model = JYMessageAIModelDeepseek;
+            self.workFlowStatus.aiMessageDeepseek = message;
+            
+            JYChatMessageAICell *cell = [[JYChatMessageAICell alloc] init];
+            [cell refreshWithModel:JYMessageAIModelDeepseek];
+            self.workFlowStatus.aiCellDeepseek = cell;
+            [self workFlowStatusDidUpdate];
+            
+            [JYPromiseHelper.sharedInstance requestAIModelWithPrompt:self.workFlowStatus.prompt
+                                                           aiMessage:message
+                                                              aiCell:cell
+                                                  enableDeepThinking:self.workFlowStatus.enableDeepThinking].then(^(JYMessageAI *aiMessage) {
+                NSLog(@"[jy] WorkFlow requestReplyDeepseek aiMessage: %@", aiMessage.content);
+                
+                self.workFlowStatus.requestReplyDeepseek = JYWorkFlowNodeStatusFulfilled;
+                [self workFlowStatusDidUpdate];
+            }).catch(^(NSError *error) {
+                NSLog(@"[jy] WorkFlow requestReplyDeepseek error: %@", error);
+                
+                self.workFlowStatus.requestReplyDeepseek = JYWorkFlowNodeStatusRejected;
+                [self workFlowStatusDidUpdate];
+            });
+        });
     }
-    JYChatMessageAICell *cell = [self.aiCellAnimationQueue qmui_firstMatchWithBlock:^BOOL(JYChatMessageAICell *_Nonnull item) {
-        return item.animationStatus == JYSegmentedLabelAnimationStatusNone;
-    }];
-    if (cell) {
-        @weakify(self);
-        @weakify(cell);
-        cell.startThoughtAnimationAction = ^{
-            @strongify(self);
-            @strongify(cell);
-            [self setStatus:JYMessageStatusAIThinking prefix:[JYMessageAI modelDescriptionWithAIModel:cell.model]];
-        };
-        cell.startContentAnimationAction = ^{
-            @strongify(self);
-            @strongify(cell);
-            [self setStatus:JYMessageStatusAIReplying prefix:[JYMessageAI modelDescriptionWithAIModel:cell.model]];
-        };
-        cell.stopAnimationAction = ^{
-            @strongify(self);
-            [self tryDequeueCellAnimation];
-        };
-        [cell startAnimation];
-        [self.stackView addArrangedSubview:cell];
-    } else if (self.didFinishReceive) {
-        [self setStatus:JYMessageStatusDone prefix:@""];
-        [self stopScrollTimer];
-        [self.scrollView qmui_scrollToBottomAnimated:NO];
+    
+    if (self.workFlowStatus.generatePrompt == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestReplyDoubao == JYWorkFlowNodeStatusPending) {
+        self.workFlowStatus.requestReplyDoubao = JYWorkFlowNodeStatusRunning;
+        [self workFlowStatusDidUpdate];
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            JYMessageAI *message = [[JYMessageAI alloc] init];
+            message.model = JYMessageAIModelDoubao;
+            self.workFlowStatus.aiMessageDoubao = message;
+            
+            JYChatMessageAICell *cell = [[JYChatMessageAICell alloc] init];
+            [cell refreshWithModel:JYMessageAIModelDoubao];
+            self.workFlowStatus.aiCellDoubao = cell;
+            [self workFlowStatusDidUpdate];
+            
+            [JYPromiseHelper.sharedInstance requestAIModelWithPrompt:self.workFlowStatus.prompt
+                                                           aiMessage:message
+                                                              aiCell:cell
+                                                  enableDeepThinking:self.workFlowStatus.enableDeepThinking].then(^(JYMessageAI *aiMessage) {
+                NSLog(@"[jy] WorkFlow requestReplyDoubao aiMessage: %@", aiMessage.content);
+                
+                self.workFlowStatus.requestReplyDoubao = JYWorkFlowNodeStatusFulfilled;
+                [self workFlowStatusDidUpdate];
+            }).catch(^(NSError *error) {
+                NSLog(@"[jy] WorkFlow requestReplyDoubao error: %@", error);
+                
+                self.workFlowStatus.requestReplyDoubao = JYWorkFlowNodeStatusRejected;
+                [self workFlowStatusDidUpdate];
+            });
+        });
+    }
+    
+    if (self.workFlowStatus.generatePrompt == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestReplyHunyuan == JYWorkFlowNodeStatusPending) {
+        self.workFlowStatus.requestReplyHunyuan = JYWorkFlowNodeStatusRunning;
+        [self workFlowStatusDidUpdate];
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            JYMessageAI *message = [[JYMessageAI alloc] init];
+            message.model = JYMessageAIModelHunyuan;
+            self.workFlowStatus.aiMessageHunyuan = message;
+            
+            JYChatMessageAICell *cell = [[JYChatMessageAICell alloc] init];
+            [cell refreshWithModel:JYMessageAIModelHunyuan];
+            self.workFlowStatus.aiCellHunyuan = cell;
+            [self workFlowStatusDidUpdate];
+            
+            [JYPromiseHelper.sharedInstance requestAIModelWithPrompt:self.workFlowStatus.prompt
+                                                           aiMessage:message
+                                                              aiCell:cell
+                                                  enableDeepThinking:self.workFlowStatus.enableDeepThinking].then(^(JYMessageAI *aiMessage) {
+                NSLog(@"[jy] WorkFlow requestReplyHunyuan aiMessage: %@", aiMessage.content);
+                
+                self.workFlowStatus.requestReplyHunyuan = JYWorkFlowNodeStatusFulfilled;
+                [self workFlowStatusDidUpdate];
+            }).catch(^(NSError *error) {
+                NSLog(@"[jy] WorkFlow requestReplyHunyuan error: %@", error);
+                
+                self.workFlowStatus.requestReplyHunyuan = JYWorkFlowNodeStatusRejected;
+                [self workFlowStatusDidUpdate];
+            });
+        });
+    }
+    
+    BOOL isReplyFulfilled = (self.workFlowStatus.requestReplyDeepseek == JYWorkFlowNodeStatusFulfilled || self.workFlowStatus.requestReplyDoubao == JYWorkFlowNodeStatusFulfilled || self.workFlowStatus.requestReplyHunyuan == JYWorkFlowNodeStatusFulfilled);
+    if (isEnded(self.workFlowStatus.requestReplyDeepseek) && isEnded(self.workFlowStatus.requestReplyDoubao) && isEnded(self.workFlowStatus.requestReplyHunyuan) && isReplyFulfilled && self.workFlowStatus.requestReplyMixed == JYWorkFlowNodeStatusPending) {
+        self.workFlowStatus.requestReplyMixed = JYWorkFlowNodeStatusRunning;
+        [self workFlowStatusDidUpdate];
+        
+        NSInteger replyCount = 0;
+        NSMutableString *reply = [NSMutableString string];
+        if (self.workFlowStatus.requestReplyDeepseek == JYWorkFlowNodeStatusFulfilled) {
+            [reply appendFormat:@"# 回答%@""\n""%@""\n", @(++replyCount), self.workFlowStatus.aiMessageDoubao.content ?: @""];
+        }
+        if (self.workFlowStatus.requestReplyDoubao == JYWorkFlowNodeStatusFulfilled) {
+            [reply appendFormat:@"# 回答%@""\n""%@""\n", @(++replyCount), self.workFlowStatus.aiMessageDoubao.content ?: @""];
+        }
+        if (self.workFlowStatus.requestReplyHunyuan == JYWorkFlowNodeStatusFulfilled) {
+            [reply appendFormat:@"# 回答%@""\n""%@""\n", @(++replyCount), self.workFlowStatus.aiMessageHunyuan.content ?: @""];
+        }
+        
+        NSString *prompt = [NSString stringWithFormat:@"# 角色""\n"
+                            "你是一个擅长“答案汇总”的专家，你将会收到关于一个问题的多个答案，你需要对多个答案进行去重、整合等处理，输出一个最终答案。""\n"
+                            "# 问题""\n"
+                            "%@""\n", reply];
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            JYMessageAI *message = [[JYMessageAI alloc] init];
+            message.model = JYMessageAIModelMixed;
+            self.workFlowStatus.aiMessageMixed = message;
+            
+            JYChatMessageAICell *cell = [[JYChatMessageAICell alloc] init];
+            [cell refreshWithModel:JYMessageAIModelMixed];
+            self.workFlowStatus.aiCellMixed = cell;
+            [self workFlowStatusDidUpdate];
+            
+            [JYPromiseHelper.sharedInstance requestAIModelWithPrompt:prompt
+                                                           aiMessage:message
+                                                              aiCell:cell
+                                                  enableDeepThinking:self.workFlowStatus.enableDeepThinking].then(^(JYMessageAI *aiMessage) {
+                NSLog(@"[jy] WorkFlow requestReplyMixed aiMessage: %@", aiMessage.yy_modelToJSONString);
+                
+                self.workFlowStatus.requestReplyMixed = JYWorkFlowNodeStatusFulfilled;
+                [self workFlowStatusDidUpdate];
+            }).catch(^(NSError *error) {
+                NSLog(@"[jy] WorkFlow requestReplyMixed error: %@", error);
+                
+                self.workFlowStatus.requestReplyMixed = JYWorkFlowNodeStatusRejected;
+                [self workFlowStatusDidUpdate];
+            });
+        });
+    }
+    
+    if (isEnded(self.workFlowStatus.requestSearchSogou) && self.workFlowStatus.uiSearchSogou == JYWorkFlowNodeStatusPending) {
+        if (self.workFlowStatus.requestSearchSogou == JYWorkFlowNodeStatusFulfilled) {
+            self.workFlowStatus.uiSearchSogou = JYWorkFlowNodeStatusRunning;
+            [self workFlowStatusDidUpdate];
+            
+            dispatch_async(dispatch_get_main_queue(), ^{
+                JYChatMessageSearchCell *cell = [[JYChatMessageSearchCell alloc] init];
+                [cell refreshWithEngine:JYMessageSearchEngineSogou];
+                [self.stackView addArrangedSubview:cell];
+                [cell setResultList:self.workFlowStatus.searchMessageSogou.resultList];
+                @weakify(self);
+                cell.stopAnimationAction = ^{
+                    @strongify(self);
+                    self.workFlowStatus.uiSearchSogou = JYWorkFlowNodeStatusFulfilled;
+                    [self workFlowStatusDidUpdate];
+                };
+                self.workFlowStatus.searchCellSogou = cell;
+                
+                self.inputView.placeholder = [NSString stringWithFormat:@"%@ 搜索中", searchEngineDescription(JYMessageSearchEngineSogou)];
+                [self.inputView startPlaceholderLoading];
+            });
+        } else {
+            self.workFlowStatus.uiSearchSogou = JYWorkFlowNodeStatusSkipped;
+            [self workFlowStatusDidUpdate];
+        }
+    }
+    
+    if (isEnded(self.workFlowStatus.requestSearchToutiao) && isEnded(self.workFlowStatus.uiSearchSogou) && self.workFlowStatus.uiSearchToutiao == JYWorkFlowNodeStatusPending) {
+        if (self.workFlowStatus.requestSearchToutiao == JYWorkFlowNodeStatusFulfilled) {
+            self.workFlowStatus.uiSearchToutiao = JYWorkFlowNodeStatusRunning;
+            [self workFlowStatusDidUpdate];
+            
+            dispatch_async(dispatch_get_main_queue(), ^{
+                JYChatMessageSearchCell *cell = [[JYChatMessageSearchCell alloc] init];
+                [cell refreshWithEngine:JYMessageSearchEngineToutiao];
+                [self.stackView addArrangedSubview:cell];
+                [cell setResultList:self.workFlowStatus.searchMessageToutiao.resultList];
+                @weakify(self);
+                cell.stopAnimationAction = ^{
+                    @strongify(self);
+                    self.workFlowStatus.uiSearchToutiao = JYWorkFlowNodeStatusFulfilled;
+                    [self workFlowStatusDidUpdate];
+                };
+                self.workFlowStatus.searchCellToutiao = cell;
+                
+                self.inputView.placeholder = [NSString stringWithFormat:@"%@ 搜索中", searchEngineDescription(JYMessageSearchEngineToutiao)];
+                [self.inputView startPlaceholderLoading];
+            });
+        } else {
+            self.workFlowStatus.uiSearchToutiao = JYWorkFlowNodeStatusSkipped;
+            [self workFlowStatusDidUpdate];
+        }
+    }
+    
+    if (isEnded(self.workFlowStatus.uiSearchToutiao) && self.workFlowStatus.aiCellDeepseek && self.workFlowStatus.uiReplyDeepseek == JYWorkFlowNodeStatusPending) {
+        self.workFlowStatus.uiReplyDeepseek = JYWorkFlowNodeStatusRunning;
+        [self workFlowStatusDidUpdate];
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            @weakify(self);
+            self.workFlowStatus.aiCellDeepseek.stopAnimationAction = ^{
+                @strongify(self);
+                self.workFlowStatus.uiReplyDeepseek = JYWorkFlowNodeStatusFulfilled;
+                [self workFlowStatusDidUpdate];
+            };
+            [self.stackView addArrangedSubview:self.workFlowStatus.aiCellDeepseek];
+            [self.workFlowStatus.aiCellDeepseek startAnimation];
+            
+            self.inputView.placeholder = [NSString stringWithFormat:@"%@ 生成中", aiModelDescription(JYMessageAIModelDeepseek)];
+            [self.inputView startPlaceholderLoading];
+        });
+    }
+    
+    if (isEnded(self.workFlowStatus.uiReplyDeepseek) && self.workFlowStatus.aiCellDoubao && self.workFlowStatus.uiReplyDoubao == JYWorkFlowNodeStatusPending) {
+        self.workFlowStatus.uiReplyDoubao = JYWorkFlowNodeStatusRunning;
+        [self workFlowStatusDidUpdate];
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            @weakify(self);
+            self.workFlowStatus.aiCellDoubao.stopAnimationAction = ^{
+                @strongify(self);
+                self.workFlowStatus.uiReplyDoubao = JYWorkFlowNodeStatusFulfilled;
+                [self workFlowStatusDidUpdate];
+            };
+            [self.stackView addArrangedSubview:self.workFlowStatus.aiCellDoubao];
+            [self.workFlowStatus.aiCellDoubao startAnimation];
+            
+            self.inputView.placeholder = [NSString stringWithFormat:@"%@ 生成中", aiModelDescription(JYMessageAIModelDoubao)];
+            [self.inputView startPlaceholderLoading];
+        });
+    }
+    
+    if (isEnded(self.workFlowStatus.uiReplyDoubao) && self.workFlowStatus.aiCellHunyuan && self.workFlowStatus.uiReplyHunyuan == JYWorkFlowNodeStatusPending) {
+        self.workFlowStatus.uiReplyHunyuan = JYWorkFlowNodeStatusRunning;
+        [self workFlowStatusDidUpdate];
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            @weakify(self);
+            self.workFlowStatus.aiCellHunyuan.stopAnimationAction = ^{
+                @strongify(self);
+                self.workFlowStatus.uiReplyHunyuan = JYWorkFlowNodeStatusFulfilled;
+                [self workFlowStatusDidUpdate];
+            };
+            [self.stackView addArrangedSubview:self.workFlowStatus.aiCellHunyuan];
+            [self.workFlowStatus.aiCellHunyuan startAnimation];
+            
+            self.inputView.placeholder = [NSString stringWithFormat:@"%@ 生成中", aiModelDescription(JYMessageAIModelHunyuan)];
+            [self.inputView startPlaceholderLoading];
+        });
+    }
+    
+    if (isEnded(self.workFlowStatus.uiReplyHunyuan) && self.workFlowStatus.aiCellMixed && self.workFlowStatus.uiReplyMixed == JYWorkFlowNodeStatusPending) {
+        self.workFlowStatus.uiReplyMixed = JYWorkFlowNodeStatusRunning;
+        [self workFlowStatusDidUpdate];
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            @weakify(self);
+            self.workFlowStatus.aiCellMixed.stopAnimationAction = ^{
+                @strongify(self);
+                self.workFlowStatus.uiReplyMixed = JYWorkFlowNodeStatusFulfilled;
+                [self workFlowStatusDidUpdate];
+                
+                self.inputView.placeholder = @"已完成回答，点击右上角开启新提问";
+                [self.inputView stopPlaceholderLoading];
+                [self stopScrollTimer];
+                [self.scrollView qmui_scrollToBottomAnimated:NO];
+            };
+            [self.stackView addArrangedSubview:self.workFlowStatus.aiCellMixed];
+            [self.workFlowStatus.aiCellMixed startAnimation];
+            
+            self.inputView.placeholder = [NSString stringWithFormat:@"%@ 生成中", aiModelDescription(JYMessageAIModelMixed)];
+            [self.inputView startPlaceholderLoading];
+        });
     }
 }
 
@@ -347,85 +671,22 @@
 
 - (void)startScrollTimer {
     if (self.scrollTimer) {
-        return;
+        [self.scrollTimer invalidate];
+        self.scrollTimer = nil;
     }
-    self.scrollTimer = [NSTimer scheduledTimerWithTimeInterval:0.2
-                                                        target:self
-                                                      selector:@selector(onScrollTimer)
-                                                      userInfo:nil
-                                                       repeats:YES];
+    @weakify(self);
+    self.scrollTimer = [NSTimer timerWithTimeInterval:0.1 repeats:YES block:^(NSTimer * _Nonnull timer) {
+        @strongify(self);
+        [self.scrollView qmui_scrollToBottomAnimated:NO];
+    }];
+    [[NSRunLoop mainRunLoop] addTimer:self.scrollTimer forMode:NSDefaultRunLoopMode];
 }
 
 - (void)stopScrollTimer {
-    [self.scrollTimer invalidate];
-    self.scrollTimer = nil;
-}
-
-- (void)onScrollTimer {
-    [self.scrollView qmui_scrollToBottomAnimated:NO];
-}
-
-#pragma mark - Status Loading
-
-- (void)setStatus:(JYMessageStatus)status prefix:(NSString *)prefix {
-    _status = status;
-    switch (status) {
-        case JYMessageStatusNone: {
-            self.statusString = @"请输入文字进行提问";
-            [self updatePlaceholderWithEnableLoading:NO];
-            break;
-        }
-        case JYMessageStatusWaiting: {
-            self.statusString = @"等待响应中";
-            [self updatePlaceholderWithEnableLoading:YES];
-            break;
-        }
-        case JYMessageStatusSearching: {
-            self.statusString = [NSString stringWithFormat:@"%@ 搜索中", prefix ?: @""];
-            [self updatePlaceholderWithEnableLoading:YES];
-            break;
-        }
-        case JYMessageStatusAIThinking: {
-            self.statusString = [NSString stringWithFormat:@"%@ 思考中", prefix ?: @""];
-            [self updatePlaceholderWithEnableLoading:YES];
-            break;
-        }
-        case JYMessageStatusAIReplying: {
-            self.statusString = [NSString stringWithFormat:@"%@ 生成中", prefix ?: @""];
-            [self updatePlaceholderWithEnableLoading:YES];
-            break;
-        }
-        case JYMessageStatusDone: {
-            self.statusString = @"已完成作答，点击右上角开启新提问";
-            [self updatePlaceholderWithEnableLoading:NO];
-            break;
-        }
+    if (self.scrollTimer) {
+        [self.scrollTimer invalidate];
+        self.scrollTimer = nil;
     }
-}
-
-- (void)updatePlaceholderWithEnableLoading:(BOOL)enableLoading {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        self.loadingString = @"";
-        self.inputView.placeholderLabel.text = [NSString stringWithFormat:@"%@%@", self.statusString, self.loadingString];
-        if (enableLoading) {
-            [self startLoadingWithStatusString:self.statusString];
-        }
-    });
-}
-    
-- (void)startLoadingWithStatusString: (NSString *)statusString {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        if (![statusString isEqualToString:self.statusString]) {
-            return;
-        }
-        if (self.loadingString.length < 3) {
-            self.loadingString = [self.loadingString stringByAppendingString:@"."];
-        } else {
-            self.loadingString = @"";
-        }
-        self.inputView.placeholderLabel.text = [NSString stringWithFormat:@"%@%@", statusString, self.loadingString];
-        [self startLoadingWithStatusString:statusString];
-    });
 }
 
 #pragma mark - Title Animation
