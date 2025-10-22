@@ -28,6 +28,14 @@ static BOOL isFulfilled(JYWorkFlowNodeStatus status) {
     return status == JYWorkFlowNodeStatusFulfilled;
 }
 
+static BOOL isRejected(JYWorkFlowNodeStatus status) {
+    return status == JYWorkFlowNodeStatusRejected;
+}
+
+static BOOL isSkipped(JYWorkFlowNodeStatus status) {
+    return status == JYWorkFlowNodeStatusSkipped;
+}
+
 static BOOL isEnded(JYWorkFlowNodeStatus status) {
     return status == JYWorkFlowNodeStatusFulfilled || status == JYWorkFlowNodeStatusRejected || status == JYWorkFlowNodeStatusSkipped;
 }
@@ -43,6 +51,7 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
 
 @property(nonatomic, copy) NSString *searchKeyword;
 @property(nonatomic, copy) NSString *prompt;
+@property(nonatomic, copy) NSString *promptMixed;
 
 @property(nonatomic, assign) JYWorkFlowNodeStatus initStatus;
 @property(nonatomic, assign) JYWorkFlowNodeStatus requestSearchKeyword;
@@ -56,15 +65,20 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
 @property(nonatomic, assign) JYWorkFlowNodeStatus requestReplyDeepseek;
 @property(nonatomic, assign) JYWorkFlowNodeStatus requestReplyDoubao;
 @property(nonatomic, assign) JYWorkFlowNodeStatus requestReplyHunyuan;
+@property(nonatomic, assign) JYWorkFlowNodeStatus generatePromptMixed;
 @property(nonatomic, assign) JYWorkFlowNodeStatus requestReplyMixed;
 
+@property(nonatomic, assign) JYWorkFlowNodeStatus uiSearchKeyword;
 @property(nonatomic, assign) JYWorkFlowNodeStatus uiSearchBaidu;
 @property(nonatomic, assign) JYWorkFlowNodeStatus uiSearchSogou;
 @property(nonatomic, assign) JYWorkFlowNodeStatus uiSearchToutiao;
+@property(nonatomic, assign) JYWorkFlowNodeStatus uiPrompt;
 @property(nonatomic, assign) JYWorkFlowNodeStatus uiReplyDeepseek;
 @property(nonatomic, assign) JYWorkFlowNodeStatus uiReplyDoubao;
 @property(nonatomic, assign) JYWorkFlowNodeStatus uiReplyHunyuan;
+@property(nonatomic, assign) JYWorkFlowNodeStatus uiPromptMixed;
 @property(nonatomic, assign) JYWorkFlowNodeStatus uiReplyMixed;
+@property(nonatomic, assign) JYWorkFlowNodeStatus uiResult;
 
 @property(nonatomic, strong) JYMessageSearch *searchMessageBaidu;
 @property(nonatomic, strong) JYMessageSearch *searchMessageSogou;
@@ -104,6 +118,35 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
 }
 
 - (void)workFlowStatusDidUpdate {
+    [self node_initStatus];
+    [self node_requestSearchKeyword];
+    [self node_requestSearchBaidu];
+    [self node_requestWebContentBaidu];
+    [self node_requestSearchSogou];
+    [self node_requestWebContentSogou];
+    [self node_requestSearchToutiao];
+    [self node_requestWebContentToutiao];
+    [self node_generatePrompt];
+    [self node_requestReplyDeepseek];
+    [self node_requestReplyDoubao];
+    [self node_requestReplyHunyuan];
+    [self node_generatePromptMixed];
+    [self node_requestReplyMixed];
+    
+    [self node_uiSearchKeyword];
+    [self node_uiSearchBaidu];
+    [self node_uiSearchSogou];
+    [self node_uiSearchToutiao];
+    [self node_uiPrompt];
+    [self node_uiReplyDeepseek];
+    [self node_uiReplyDoubao];
+    [self node_uiReplyHunyuan];
+    [self node_uiPromptMixed];
+    [self node_uiReplyMixed];
+    [self node_uiResult];
+}
+
+- (void)node_initStatus {
     if (isPending(self.initStatus)) {
         self.initStatus = JYWorkFlowNodeStatusRunning;
         [self workFlowStatusDidUpdate];
@@ -119,7 +162,9 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         self.initStatus = JYWorkFlowNodeStatusFulfilled;
         [self workFlowStatusDidUpdate];
     }
-    
+}
+
+- (void)node_requestSearchKeyword {
     if (isFulfilled(self.initStatus) &&
         isPending(self.requestSearchKeyword)) {
         self.requestSearchKeyword = JYWorkFlowNodeStatusRunning;
@@ -138,7 +183,9 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             [self workFlowStatusDidUpdate];
         });
     }
-    
+}
+
+- (void)node_requestSearchBaidu {
     if (isFulfilled(self.requestSearchKeyword) &&
         isPending(self.requestSearchBaidu)) {
         self.requestSearchBaidu = JYWorkFlowNodeStatusRunning;
@@ -160,7 +207,9 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             [self workFlowStatusDidUpdate];
         });
     }
-    
+}
+
+- (void)node_requestSearchSogou {
     if (isFulfilled(self.requestSearchKeyword) &&
         isPending(self.requestSearchSogou)) {
         self.requestSearchSogou = JYWorkFlowNodeStatusRunning;
@@ -182,7 +231,9 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             [self workFlowStatusDidUpdate];
         });
     }
-    
+}
+
+- (void)node_requestSearchToutiao {
     if (isFulfilled(self.requestSearchKeyword) &&
         isPending(self.requestSearchToutiao)) {
         self.requestSearchToutiao = JYWorkFlowNodeStatusRunning;
@@ -204,7 +255,9 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             [self workFlowStatusDidUpdate];
         });
     }
-    
+}
+
+- (void)node_requestWebContentBaidu {
     if (isFulfilled(self.requestSearchBaidu) &&
         isPending(self.requestWebContentBaidu)) {
         self.requestWebContentBaidu = JYWorkFlowNodeStatusRunning;
@@ -233,7 +286,9 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             [self workFlowStatusDidUpdate];
         });
     }
-    
+}
+
+- (void)node_requestWebContentSogou {
     if (isFulfilled(self.requestSearchSogou) &&
         isPending(self.requestWebContentSogou)) {
         self.requestWebContentSogou = JYWorkFlowNodeStatusRunning;
@@ -262,7 +317,9 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             [self workFlowStatusDidUpdate];
         });
     }
-    
+}
+
+- (void)node_requestWebContentToutiao {
     if (isFulfilled(self.requestSearchToutiao) &&
         isPending(self.requestWebContentToutiao)) {
         self.requestWebContentToutiao = JYWorkFlowNodeStatusRunning;
@@ -291,44 +348,55 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             [self workFlowStatusDidUpdate];
         });
     }
-    
-    if (isEnded(self.requestSearchBaidu) &&
-        isEnded(self.requestSearchSogou) &&
-        isEnded(self.requestSearchToutiao) &&
+}
+
+- (void)node_generatePrompt {
+    if (isEnded(self.requestWebContentBaidu) &&
+        isEnded(self.requestWebContentSogou) &&
+        isEnded(self.requestWebContentToutiao) &&
         isPending(self.generatePrompt)) {
-        BOOL isSearchFulfilled = (isFulfilled(self.requestSearchBaidu) ||
-                                  isFulfilled(self.requestSearchSogou) ||
-                                  isFulfilled(self.requestSearchToutiao));
-        if (self.enableOnlineSearch && isSearchFulfilled) {
-            NSMutableString *reference = [NSMutableString string];
-            self.generatePrompt = JYWorkFlowNodeStatusRunning;
-            [self workFlowStatusDidUpdate];
-            
-            for (JYMessageSearchResult *result in self.searchMessageSogou.resultList) {
-                if (result.title.length == 0 || result.url.length == 0 || result.content.length == 0) {
-                    continue;
+        if (self.enableOnlineSearch) {
+            BOOL isSearchFulfilled = (isFulfilled(self.requestWebContentBaidu) ||
+                                      isFulfilled(self.requestWebContentSogou) ||
+                                      isFulfilled(self.requestWebContentToutiao));
+            if (isSearchFulfilled) {
+                NSMutableString *reference = [NSMutableString string];
+                self.generatePrompt = JYWorkFlowNodeStatusRunning;
+                [self workFlowStatusDidUpdate];
+                
+                for (JYMessageSearchResult *result in self.searchMessageBaidu.resultList) {
+                    if (result.title.length == 0 || result.url.length == 0 || result.content.length == 0) {
+                        continue;
+                    }
+                    [reference appendFormat:@"## %@""\n""%@""\n", result.title, result.content];
                 }
-                [reference appendFormat:@"## %@""\n""%@""\n", result.title, result.content];
-            }
-            for (JYMessageSearchResult *result in self.searchMessageToutiao.resultList) {
-                if (result.title.length == 0 || result.url.length == 0 || result.content.length == 0) {
-                    continue;
+                for (JYMessageSearchResult *result in self.searchMessageSogou.resultList) {
+                    if (result.title.length == 0 || result.url.length == 0 || result.content.length == 0) {
+                        continue;
+                    }
+                    [reference appendFormat:@"## %@""\n""%@""\n", result.title, result.content];
                 }
-                [reference appendFormat:@"## %@""\n""%@""\n", result.title, result.content];
+                for (JYMessageSearchResult *result in self.searchMessageToutiao.resultList) {
+                    if (result.title.length == 0 || result.url.length == 0 || result.content.length == 0) {
+                        continue;
+                    }
+                    [reference appendFormat:@"## %@""\n""%@""\n", result.title, result.content];
+                }
+                NSString *prompt = [NSString stringWithFormat:@"# 角色""\n"
+                                    "你是一个专业的AI问答助手，请根据问题回答，以下会给你一些参考资料。""\n"
+                                    "# 问题""\n"
+                                    "%@""\n"
+                                    "# 参考资料""\n"
+                                    "%@""\n", self.query ?: @"", reference];
+                self.prompt = prompt;
+                
+                self.generatePrompt = JYWorkFlowNodeStatusFulfilled;
+                [self workFlowStatusDidUpdate];
+            } else {
+                self.generatePrompt = JYWorkFlowNodeStatusRejected;
+                [self workFlowStatusDidUpdate];
             }
-            NSString *prompt = [NSString stringWithFormat:@"# 角色""\n"
-                                "你是一个专业的AI问答助手，请根据问题回答，以下会给你一些参考资料。""\n"
-                                "# 问题""\n"
-                                "%@""\n"
-                                "# 参考资料""\n"
-                                "%@""\n", self.query ?: @"", reference];
-            self.prompt = prompt;
-            
-            self.generatePrompt = JYWorkFlowNodeStatusFulfilled;
-            [self workFlowStatusDidUpdate];
-        }
-        
-        if (!self.enableOnlineSearch) {
+        } else {
             self.generatePrompt = JYWorkFlowNodeStatusRunning;
             [self workFlowStatusDidUpdate];
             
@@ -344,7 +412,9 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             [self workFlowStatusDidUpdate];
         }
     }
-    
+}
+
+- (void)node_requestReplyDeepseek {
     if (isFulfilled(self.generatePrompt) &&
         isPending(self.requestReplyDeepseek)) {
         self.requestReplyDeepseek = JYWorkFlowNodeStatusRunning;
@@ -376,7 +446,9 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             });
         });
     }
-    
+}
+
+- (void)node_requestReplyDoubao {
     if (isFulfilled(self.generatePrompt) &&
         isPending(self.requestReplyDoubao)) {
         self.requestReplyDoubao = JYWorkFlowNodeStatusRunning;
@@ -408,7 +480,9 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             });
         });
     }
-    
+}
+
+- (void)node_requestReplyHunyuan {
     if (isFulfilled(self.generatePrompt) &&
         isPending(self.requestReplyHunyuan)) {
         self.requestReplyHunyuan = JYWorkFlowNodeStatusRunning;
@@ -440,34 +514,49 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             });
         });
     }
-    
-    BOOL isReplyFulfilled = (isFulfilled(self.requestReplyDeepseek) ||
-                             isFulfilled(self.requestReplyDoubao) ||
-                             isFulfilled(self.requestReplyHunyuan));
+}
+
+- (void)node_generatePromptMixed {
     if (isEnded(self.requestReplyDeepseek) &&
         isEnded(self.requestReplyDoubao) &&
         isEnded(self.requestReplyHunyuan) &&
-        isReplyFulfilled &&
+        isPending(self.generatePromptMixed)) {
+        BOOL isReplyFulfilled = (isFulfilled(self.requestReplyDeepseek) ||
+                                 isFulfilled(self.requestReplyDoubao) ||
+                                 isFulfilled(self.requestReplyHunyuan));
+        if (isReplyFulfilled) {
+            NSInteger replyCount = 0;
+            NSMutableString *reply = [NSMutableString string];
+            if (isFulfilled(self.requestReplyDeepseek)) {
+                [reply appendFormat:@"# 回答%@""\n""%@""\n", @(++replyCount), self.aiMessageDoubao.content ?: @""];
+            }
+            if (isFulfilled(self.requestReplyDoubao)) {
+                [reply appendFormat:@"# 回答%@""\n""%@""\n", @(++replyCount), self.aiMessageDoubao.content ?: @""];
+            }
+            if (isFulfilled(self.requestReplyHunyuan)) {
+                [reply appendFormat:@"# 回答%@""\n""%@""\n", @(++replyCount), self.aiMessageHunyuan.content ?: @""];
+            }
+            
+            NSString *prompt = [NSString stringWithFormat:@"# 角色""\n"
+                                "你是一个擅长“答案汇总”的专家，你将会收到关于一个问题的多个答案，你需要对多个答案进行去重、整合等处理，输出一个最终答案。""\n"
+                                "# 问题""\n"
+                                "%@""\n", reply];
+            self.promptMixed = prompt;
+            
+            self.generatePromptMixed = JYWorkFlowNodeStatusFulfilled;
+            [self workFlowStatusDidUpdate];
+        } else {
+            self.generatePromptMixed = JYWorkFlowNodeStatusRejected;
+            [self workFlowStatusDidUpdate];
+        }
+    }
+}
+
+- (void)node_requestReplyMixed {
+    if (isFulfilled(self.generatePromptMixed) &&
         isPending(self.requestReplyMixed)) {
         self.requestReplyMixed = JYWorkFlowNodeStatusRunning;
         [self workFlowStatusDidUpdate];
-        
-        NSInteger replyCount = 0;
-        NSMutableString *reply = [NSMutableString string];
-        if (isFulfilled(self.requestReplyDeepseek)) {
-            [reply appendFormat:@"# 回答%@""\n""%@""\n", @(++replyCount), self.aiMessageDoubao.content ?: @""];
-        }
-        if (isFulfilled(self.requestReplyDoubao)) {
-            [reply appendFormat:@"# 回答%@""\n""%@""\n", @(++replyCount), self.aiMessageDoubao.content ?: @""];
-        }
-        if (isFulfilled(self.requestReplyHunyuan)) {
-            [reply appendFormat:@"# 回答%@""\n""%@""\n", @(++replyCount), self.aiMessageHunyuan.content ?: @""];
-        }
-        
-        NSString *prompt = [NSString stringWithFormat:@"# 角色""\n"
-                            "你是一个擅长“答案汇总”的专家，你将会收到关于一个问题的多个答案，你需要对多个答案进行去重、整合等处理，输出一个最终答案。""\n"
-                            "# 问题""\n"
-                            "%@""\n", reply];
         
         dispatch_async(dispatch_get_main_queue(), ^{
             JYMessageAI *message = [[JYMessageAI alloc] init];
@@ -479,7 +568,7 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             self.aiCellMixed = cell;
             [self workFlowStatusDidUpdate];
             
-            [JYPromiseHelper.sharedInstance requestAIModelWithPrompt:prompt
+            [JYPromiseHelper.sharedInstance requestAIModelWithPrompt:self.promptMixed
                                                            aiMessage:message
                                                               aiCell:cell
                                                   enableDeepThinking:self.enableDeepThinking].then(^(JYMessageAI *aiMessage) {
@@ -495,8 +584,26 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             });
         });
     }
-    
-    if (isEnded(self.requestSearchBaidu) &&
+}
+
+- (void)node_uiSearchKeyword {
+    if (isEnded(self.requestSearchKeyword) &&
+        isPending(self.uiSearchKeyword)) {
+        self.uiSearchKeyword = JYWorkFlowNodeStatusFulfilled;
+        [self workFlowStatusDidUpdate];
+        
+        if (isRejected(self.requestSearchKeyword)) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                self.vc.inputView.placeholder = @"搜索关键词解析失败，点此重试";
+                [self.vc.inputView stopPlaceholderLoading];
+            });
+        }
+    }
+}
+
+- (void)node_uiSearchBaidu {
+    if (isEnded(self.uiSearchKeyword) &&
+        isEnded(self.requestSearchBaidu) &&
         isPending(self.uiSearchBaidu)) {
         if (isFulfilled(self.requestSearchBaidu)) {
             self.uiSearchBaidu = JYWorkFlowNodeStatusRunning;
@@ -523,7 +630,9 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             [self workFlowStatusDidUpdate];
         }
     }
-    
+}
+
+- (void)node_uiSearchSogou {
     if (isEnded(self.uiSearchBaidu) &&
         isEnded(self.requestSearchSogou) &&
         isPending(self.uiSearchSogou)) {
@@ -552,7 +661,9 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             [self workFlowStatusDidUpdate];
         }
     }
-    
+}
+
+- (void)node_uiSearchToutiao {
     if (isEnded(self.uiSearchSogou) &&
         isEnded(self.requestSearchToutiao) &&
         isPending(self.uiSearchToutiao)) {
@@ -581,8 +692,26 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             [self workFlowStatusDidUpdate];
         }
     }
-    
+}
+
+- (void)node_uiPrompt {
     if (isEnded(self.uiSearchToutiao) &&
+        isEnded(self.generatePrompt) &&
+        isPending(self.uiPrompt)) {
+        self.uiPrompt = JYWorkFlowNodeStatusFulfilled;
+        [self workFlowStatusDidUpdate];
+        
+        if (isRejected(self.generatePrompt)) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                self.vc.inputView.placeholder = @"搜索失败，点此重试";
+                [self.vc.inputView stopPlaceholderLoading];
+            });
+        }
+    }
+}
+
+- (void)node_uiReplyDeepseek {
+    if (isEnded(self.uiPrompt) &&
         self.aiCellDeepseek &&
         isPending(self.uiReplyDeepseek)) {
         self.uiReplyDeepseek = JYWorkFlowNodeStatusRunning;
@@ -602,7 +731,9 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             [self.vc.inputView startPlaceholderLoading];
         });
     }
-    
+}
+
+- (void)node_uiReplyDoubao {
     if (isEnded(self.uiReplyDeepseek) &&
         self.aiCellDoubao &&
         isPending(self.uiReplyDoubao)) {
@@ -623,7 +754,9 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             [self.vc.inputView startPlaceholderLoading];
         });
     }
-    
+}
+
+- (void)node_uiReplyHunyuan {
     if (isEnded(self.uiReplyDoubao) &&
         self.aiCellHunyuan &&
         isPending(self.uiReplyHunyuan)) {
@@ -644,8 +777,26 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             [self.vc.inputView startPlaceholderLoading];
         });
     }
-    
+}
+
+- (void)node_uiPromptMixed {
     if (isEnded(self.uiReplyHunyuan) &&
+        isEnded(self.generatePromptMixed) &&
+        isPending(self.uiPromptMixed)) {
+        self.uiPromptMixed = JYWorkFlowNodeStatusFulfilled;
+        [self workFlowStatusDidUpdate];
+        
+        if (isRejected(self.generatePromptMixed)) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                self.vc.inputView.placeholder = @"答案生成失败，点此重试";
+                [self.vc.inputView stopPlaceholderLoading];
+            });
+        }
+    }
+}
+
+- (void)node_uiReplyMixed {
+    if (isEnded(self.uiPromptMixed) &&
         self.aiCellMixed &&
         isPending(self.uiReplyMixed)) {
         self.uiReplyMixed = JYWorkFlowNodeStatusRunning;
@@ -657,11 +808,6 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
                 @strongify(self);
                 self.uiReplyMixed = JYWorkFlowNodeStatusFulfilled;
                 [self workFlowStatusDidUpdate];
-                
-                self.vc.inputView.placeholder = @"已完成回答，点击右上角开启新提问";
-                [self.vc.inputView stopPlaceholderLoading];
-                [self.vc stopScrollTimer];
-                [self.vc.scrollView qmui_scrollToBottomAnimated:NO];
             };
             [self.vc.stackView addArrangedSubview:self.aiCellMixed];
             [self.aiCellMixed startAnimation];
@@ -669,6 +815,26 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             self.vc.inputView.placeholder = [NSString stringWithFormat:@"%@ 生成中", aiModelDescription(JYMessageAIModelMixed)];
             [self.vc.inputView startPlaceholderLoading];
         });
+    }
+}
+
+- (void)node_uiResult {
+    if (isEnded(self.uiReplyMixed) &&
+        isPending(self.uiResult)) {
+        self.uiResult = JYWorkFlowNodeStatusFulfilled;
+        [self workFlowStatusDidUpdate];
+        
+        if (isFulfilled(self.requestReplyMixed)) {
+            self.vc.inputView.placeholder = @"已完成回答，点击右上角开启新提问";
+            [self.vc.inputView stopPlaceholderLoading];
+            [self.vc stopScrollTimer];
+            [self.vc.scrollView qmui_scrollToBottomAnimated:NO];
+        } else if (isRejected(self.requestReplyMixed)) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                self.vc.inputView.placeholder = @"最终答案生成失败，点此重试";
+                [self.vc.inputView stopPlaceholderLoading];
+            });
+        }
     }
 }
 

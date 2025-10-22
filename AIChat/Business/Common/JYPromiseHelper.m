@@ -85,7 +85,7 @@
         manager.responseSerializer = [AFJSONResponseSerializer serializer];
         [manager POST:urlString parameters:parameters headers:nil progress:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
             NSDictionary *responseDic = JY_SAFE_CAST(responseObject, NSDictionary);
-            NSArray *resultDicList = JY_SAFE_CAST(responseDic[@"resultList"], NSArray);
+            NSArray *resultDicList = JY_SAFE_CAST(responseDic[@"data"][@"resultList"], NSArray);
             NSArray<JYMessageSearchResult *> *resultList = [resultDicList qmui_compactMapWithBlock:^id _Nullable(NSString * _Nonnull item) {
                 JYMessageSearchResult *result = [JYMessageSearchResult yy_modelWithJSON:item];
                 return (result.title.length > 0 && result.url.length > 0 && result.content.length > 0) ? result : nil;
@@ -219,6 +219,10 @@
         } onClose:^(EventSourceEvent * _Nonnull event) {
             @strongify(eventSource);
             [self.eventSourceList removeObject:eventSource];
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [aiCell finishAppendThought];
+                [aiCell finishAppendContent];
+            });
             if (aiMessage.content.length > 0) {
                 NSLog(@"[jy] requestCozeModel onResult, modelName: %@, result: %@", modelName, aiMessage.content);
                 resolve(aiMessage);
@@ -230,6 +234,10 @@
         } onError:^(EventSourceEvent * _Nonnull event) {
             @strongify(eventSource);
             [self.eventSourceList removeObject:eventSource];
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [aiCell finishAppendThought];
+                [aiCell finishAppendContent];
+            });
             NSLog(@"[jy] requestCozeModel onError, modelName: %@, error: %@", modelName, event.error);
             resolve(event.error);
         }];
