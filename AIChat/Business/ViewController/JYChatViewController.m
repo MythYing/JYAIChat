@@ -27,6 +27,18 @@ typedef enum : NSUInteger {
     JYWorkFlowNodeStatusSkipped,
 } JYWorkFlowNodeStatus;
 
+static BOOL isPending(JYWorkFlowNodeStatus status) {
+    return status == JYWorkFlowNodeStatusPending;
+}
+
+static BOOL isFulfilled(JYWorkFlowNodeStatus status) {
+    return status == JYWorkFlowNodeStatusFulfilled;
+}
+
+static BOOL isEnded(JYWorkFlowNodeStatus status) {
+    return status == JYWorkFlowNodeStatusFulfilled || status == JYWorkFlowNodeStatusRejected || status == JYWorkFlowNodeStatusSkipped;
+}
+
 @interface JYWorkFlowStatus : NSObject
 
 @property(nonatomic, assign) JYWorkFlowNodeStatus initStatus;
@@ -78,10 +90,6 @@ typedef enum : NSUInteger {
 @implementation JYWorkFlowStatus
 
 @end
-
-static BOOL isEnded(JYWorkFlowNodeStatus status) {
-    return status == JYWorkFlowNodeStatusFulfilled || status == JYWorkFlowNodeStatusRejected || status == JYWorkFlowNodeStatusSkipped;
-}
 
 #pragma mark - JYChatViewController
 
@@ -214,7 +222,7 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
 }
 
 - (void)workFlowStatusDidUpdate {
-    if (self.workFlowStatus.initStatus == JYWorkFlowNodeStatusPending) {
+    if (isPending(self.workFlowStatus.initStatus)) {
         self.workFlowStatus.initStatus = JYWorkFlowNodeStatusRunning;
         [self workFlowStatusDidUpdate];
         
@@ -230,7 +238,8 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         [self workFlowStatusDidUpdate];
     }
     
-    if (self.workFlowStatus.initStatus == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestSearchKeyword == JYWorkFlowNodeStatusPending) {
+    if (isFulfilled(self.workFlowStatus.initStatus) &&
+        isPending(self.workFlowStatus.requestSearchKeyword)) {
         self.workFlowStatus.requestSearchKeyword = JYWorkFlowNodeStatusRunning;
         [self workFlowStatusDidUpdate];
         
@@ -248,7 +257,8 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         });
     }
     
-    if (self.workFlowStatus.requestSearchKeyword == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestSearchBaidu == JYWorkFlowNodeStatusPending) {
+    if (isFulfilled(self.workFlowStatus.requestSearchKeyword) &&
+        isPending(self.workFlowStatus.requestSearchBaidu)) {
         self.workFlowStatus.requestSearchBaidu = JYWorkFlowNodeStatusRunning;
         [self workFlowStatusDidUpdate];
         
@@ -269,7 +279,8 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         });
     }
     
-    if (self.workFlowStatus.requestSearchKeyword == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestSearchSogou == JYWorkFlowNodeStatusPending) {
+    if (isFulfilled(self.workFlowStatus.requestSearchKeyword) &&
+        isPending(self.workFlowStatus.requestSearchSogou)) {
         self.workFlowStatus.requestSearchSogou = JYWorkFlowNodeStatusRunning;
         [self workFlowStatusDidUpdate];
         
@@ -290,7 +301,8 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         });
     }
     
-    if (self.workFlowStatus.requestSearchKeyword == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestSearchToutiao == JYWorkFlowNodeStatusPending) {
+    if (isFulfilled(self.workFlowStatus.requestSearchKeyword) &&
+        isPending(self.workFlowStatus.requestSearchToutiao)) {
         self.workFlowStatus.requestSearchToutiao = JYWorkFlowNodeStatusRunning;
         [self workFlowStatusDidUpdate];
         
@@ -311,7 +323,8 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         });
     }
     
-    if (self.workFlowStatus.requestSearchBaidu == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestWebContentBaidu == JYWorkFlowNodeStatusPending) {
+    if (isFulfilled(self.workFlowStatus.requestSearchBaidu) &&
+        isPending(self.workFlowStatus.requestWebContentBaidu)) {
         self.workFlowStatus.requestWebContentBaidu = JYWorkFlowNodeStatusRunning;
         [self workFlowStatusDidUpdate];
         
@@ -339,7 +352,8 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         });
     }
     
-    if (self.workFlowStatus.requestSearchSogou == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestWebContentSogou == JYWorkFlowNodeStatusPending) {
+    if (isFulfilled(self.workFlowStatus.requestSearchSogou) &&
+        isPending(self.workFlowStatus.requestWebContentSogou)) {
         self.workFlowStatus.requestWebContentSogou = JYWorkFlowNodeStatusRunning;
         [self workFlowStatusDidUpdate];
         
@@ -367,7 +381,8 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         });
     }
     
-    if (self.workFlowStatus.requestSearchToutiao == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestWebContentToutiao == JYWorkFlowNodeStatusPending) {
+    if (isFulfilled(self.workFlowStatus.requestSearchToutiao) &&
+        isPending(self.workFlowStatus.requestWebContentToutiao)) {
         self.workFlowStatus.requestWebContentToutiao = JYWorkFlowNodeStatusRunning;
         [self workFlowStatusDidUpdate];
         
@@ -395,10 +410,13 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         });
     }
     
-    if (isEnded(self.workFlowStatus.requestSearchBaidu) && isEnded(self.workFlowStatus.requestSearchSogou) && isEnded(self.workFlowStatus.requestSearchToutiao) && self.workFlowStatus.generatePrompt == JYWorkFlowNodeStatusPending) {
-        BOOL isSearchFulfilled = (self.workFlowStatus.requestSearchBaidu == JYWorkFlowNodeStatusFulfilled ||
-                                  self.workFlowStatus.requestSearchSogou == JYWorkFlowNodeStatusFulfilled ||
-                                  self.workFlowStatus.requestSearchToutiao == JYWorkFlowNodeStatusFulfilled);
+    if (isEnded(self.workFlowStatus.requestSearchBaidu) &&
+        isEnded(self.workFlowStatus.requestSearchSogou) &&
+        isEnded(self.workFlowStatus.requestSearchToutiao) &&
+        isPending(self.workFlowStatus.generatePrompt)) {
+        BOOL isSearchFulfilled = (isFulfilled(self.workFlowStatus.requestSearchBaidu) ||
+                                  isFulfilled(self.workFlowStatus.requestSearchSogou) ||
+                                  isFulfilled(self.workFlowStatus.requestSearchToutiao));
         if (self.workFlowStatus.enableOnlineSearch && isSearchFulfilled) {
             NSMutableString *reference = [NSMutableString string];
             self.workFlowStatus.generatePrompt = JYWorkFlowNodeStatusRunning;
@@ -445,7 +463,8 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         }
     }
     
-    if (self.workFlowStatus.generatePrompt == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestReplyDeepseek == JYWorkFlowNodeStatusPending) {
+    if (isFulfilled(self.workFlowStatus.generatePrompt) &&
+        isPending(self.workFlowStatus.requestReplyDeepseek)) {
         self.workFlowStatus.requestReplyDeepseek = JYWorkFlowNodeStatusRunning;
         [self workFlowStatusDidUpdate];
         
@@ -476,7 +495,8 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         });
     }
     
-    if (self.workFlowStatus.generatePrompt == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestReplyDoubao == JYWorkFlowNodeStatusPending) {
+    if (isFulfilled(self.workFlowStatus.generatePrompt) &&
+        isPending(self.workFlowStatus.requestReplyDoubao)) {
         self.workFlowStatus.requestReplyDoubao = JYWorkFlowNodeStatusRunning;
         [self workFlowStatusDidUpdate];
         
@@ -507,7 +527,8 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         });
     }
     
-    if (self.workFlowStatus.generatePrompt == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestReplyHunyuan == JYWorkFlowNodeStatusPending) {
+    if (isFulfilled(self.workFlowStatus.generatePrompt) &&
+        isPending(self.workFlowStatus.requestReplyHunyuan)) {
         self.workFlowStatus.requestReplyHunyuan = JYWorkFlowNodeStatusRunning;
         [self workFlowStatusDidUpdate];
         
@@ -538,20 +559,26 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         });
     }
     
-    BOOL isReplyFulfilled = (self.workFlowStatus.requestReplyDeepseek == JYWorkFlowNodeStatusFulfilled || self.workFlowStatus.requestReplyDoubao == JYWorkFlowNodeStatusFulfilled || self.workFlowStatus.requestReplyHunyuan == JYWorkFlowNodeStatusFulfilled);
-    if (isEnded(self.workFlowStatus.requestReplyDeepseek) && isEnded(self.workFlowStatus.requestReplyDoubao) && isEnded(self.workFlowStatus.requestReplyHunyuan) && isReplyFulfilled && self.workFlowStatus.requestReplyMixed == JYWorkFlowNodeStatusPending) {
+    BOOL isReplyFulfilled = (isFulfilled(self.workFlowStatus.requestReplyDeepseek) ||
+                             isFulfilled(self.workFlowStatus.requestReplyDoubao) ||
+                             isFulfilled(self.workFlowStatus.requestReplyHunyuan));
+    if (isEnded(self.workFlowStatus.requestReplyDeepseek) &&
+        isEnded(self.workFlowStatus.requestReplyDoubao) &&
+        isEnded(self.workFlowStatus.requestReplyHunyuan) &&
+        isReplyFulfilled &&
+        isPending(self.workFlowStatus.requestReplyMixed)) {
         self.workFlowStatus.requestReplyMixed = JYWorkFlowNodeStatusRunning;
         [self workFlowStatusDidUpdate];
         
         NSInteger replyCount = 0;
         NSMutableString *reply = [NSMutableString string];
-        if (self.workFlowStatus.requestReplyDeepseek == JYWorkFlowNodeStatusFulfilled) {
+        if (isFulfilled(self.workFlowStatus.requestReplyDeepseek)) {
             [reply appendFormat:@"# 回答%@""\n""%@""\n", @(++replyCount), self.workFlowStatus.aiMessageDoubao.content ?: @""];
         }
-        if (self.workFlowStatus.requestReplyDoubao == JYWorkFlowNodeStatusFulfilled) {
+        if (isFulfilled(self.workFlowStatus.requestReplyDoubao)) {
             [reply appendFormat:@"# 回答%@""\n""%@""\n", @(++replyCount), self.workFlowStatus.aiMessageDoubao.content ?: @""];
         }
-        if (self.workFlowStatus.requestReplyHunyuan == JYWorkFlowNodeStatusFulfilled) {
+        if (isFulfilled(self.workFlowStatus.requestReplyHunyuan)) {
             [reply appendFormat:@"# 回答%@""\n""%@""\n", @(++replyCount), self.workFlowStatus.aiMessageHunyuan.content ?: @""];
         }
         
@@ -587,8 +614,9 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         });
     }
     
-    if (isEnded(self.workFlowStatus.requestSearchBaidu) && self.workFlowStatus.uiSearchBaidu == JYWorkFlowNodeStatusPending) {
-        if (self.workFlowStatus.requestSearchBaidu == JYWorkFlowNodeStatusFulfilled) {
+    if (isEnded(self.workFlowStatus.requestSearchBaidu) &&
+        isPending(self.workFlowStatus.uiSearchBaidu)) {
+        if (isFulfilled(self.workFlowStatus.requestSearchBaidu)) {
             self.workFlowStatus.uiSearchBaidu = JYWorkFlowNodeStatusRunning;
             [self workFlowStatusDidUpdate];
             
@@ -614,8 +642,10 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         }
     }
     
-    if (isEnded(self.workFlowStatus.uiSearchBaidu) && isEnded(self.workFlowStatus.requestSearchSogou) && self.workFlowStatus.uiSearchSogou == JYWorkFlowNodeStatusPending) {
-        if (self.workFlowStatus.requestSearchSogou == JYWorkFlowNodeStatusFulfilled) {
+    if (isEnded(self.workFlowStatus.uiSearchBaidu) &&
+        isEnded(self.workFlowStatus.requestSearchSogou) &&
+        isPending(self.workFlowStatus.uiSearchSogou)) {
+        if (isFulfilled(self.workFlowStatus.requestSearchSogou)) {
             self.workFlowStatus.uiSearchSogou = JYWorkFlowNodeStatusRunning;
             [self workFlowStatusDidUpdate];
             
@@ -641,8 +671,10 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         }
     }
     
-    if (isEnded(self.workFlowStatus.uiSearchSogou) && isEnded(self.workFlowStatus.requestSearchToutiao) && self.workFlowStatus.uiSearchToutiao == JYWorkFlowNodeStatusPending) {
-        if (self.workFlowStatus.requestSearchToutiao == JYWorkFlowNodeStatusFulfilled) {
+    if (isEnded(self.workFlowStatus.uiSearchSogou) &&
+        isEnded(self.workFlowStatus.requestSearchToutiao) &&
+        isPending(self.workFlowStatus.uiSearchToutiao)) {
+        if (isFulfilled(self.workFlowStatus.requestSearchToutiao)) {
             self.workFlowStatus.uiSearchToutiao = JYWorkFlowNodeStatusRunning;
             [self workFlowStatusDidUpdate];
             
@@ -668,7 +700,9 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         }
     }
     
-    if (isEnded(self.workFlowStatus.uiSearchToutiao) && self.workFlowStatus.aiCellDeepseek && self.workFlowStatus.uiReplyDeepseek == JYWorkFlowNodeStatusPending) {
+    if (isEnded(self.workFlowStatus.uiSearchToutiao) &&
+        self.workFlowStatus.aiCellDeepseek &&
+        isPending(self.workFlowStatus.uiReplyDeepseek)) {
         self.workFlowStatus.uiReplyDeepseek = JYWorkFlowNodeStatusRunning;
         [self workFlowStatusDidUpdate];
         
@@ -687,7 +721,9 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         });
     }
     
-    if (isEnded(self.workFlowStatus.uiReplyDeepseek) && self.workFlowStatus.aiCellDoubao && self.workFlowStatus.uiReplyDoubao == JYWorkFlowNodeStatusPending) {
+    if (isEnded(self.workFlowStatus.uiReplyDeepseek) &&
+        self.workFlowStatus.aiCellDoubao &&
+        isPending(self.workFlowStatus.uiReplyDoubao)) {
         self.workFlowStatus.uiReplyDoubao = JYWorkFlowNodeStatusRunning;
         [self workFlowStatusDidUpdate];
         
@@ -706,7 +742,9 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         });
     }
     
-    if (isEnded(self.workFlowStatus.uiReplyDoubao) && self.workFlowStatus.aiCellHunyuan && self.workFlowStatus.uiReplyHunyuan == JYWorkFlowNodeStatusPending) {
+    if (isEnded(self.workFlowStatus.uiReplyDoubao) &&
+        self.workFlowStatus.aiCellHunyuan &&
+        isPending(self.workFlowStatus.uiReplyHunyuan)) {
         self.workFlowStatus.uiReplyHunyuan = JYWorkFlowNodeStatusRunning;
         [self workFlowStatusDidUpdate];
         
@@ -725,7 +763,9 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         });
     }
     
-    if (isEnded(self.workFlowStatus.uiReplyHunyuan) && self.workFlowStatus.aiCellMixed && self.workFlowStatus.uiReplyMixed == JYWorkFlowNodeStatusPending) {
+    if (isEnded(self.workFlowStatus.uiReplyHunyuan) &&
+        self.workFlowStatus.aiCellMixed &&
+        isPending(self.workFlowStatus.uiReplyMixed)) {
         self.workFlowStatus.uiReplyMixed = JYWorkFlowNodeStatusRunning;
         [self workFlowStatusDidUpdate];
         
