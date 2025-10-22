@@ -31,6 +31,8 @@ typedef enum : NSUInteger {
 
 @property(nonatomic, assign) JYWorkFlowNodeStatus initStatus;
 @property(nonatomic, assign) JYWorkFlowNodeStatus requestSearchKeyword;
+@property(nonatomic, assign) JYWorkFlowNodeStatus requestSearchBaidu;
+@property(nonatomic, assign) JYWorkFlowNodeStatus requestWebContentBaidu;
 @property(nonatomic, assign) JYWorkFlowNodeStatus requestSearchSogou;
 @property(nonatomic, assign) JYWorkFlowNodeStatus requestWebContentSogou;
 @property(nonatomic, assign) JYWorkFlowNodeStatus requestSearchToutiao;
@@ -41,6 +43,7 @@ typedef enum : NSUInteger {
 @property(nonatomic, assign) JYWorkFlowNodeStatus requestReplyHunyuan;
 @property(nonatomic, assign) JYWorkFlowNodeStatus requestReplyMixed;
 
+@property(nonatomic, assign) JYWorkFlowNodeStatus uiSearchBaidu;
 @property(nonatomic, assign) JYWorkFlowNodeStatus uiSearchSogou;
 @property(nonatomic, assign) JYWorkFlowNodeStatus uiSearchToutiao;
 @property(nonatomic, assign) JYWorkFlowNodeStatus uiReplyDeepseek;
@@ -54,6 +57,7 @@ typedef enum : NSUInteger {
 @property(nonatomic, copy) NSString *searchKeyword;
 @property(nonatomic, copy) NSString *prompt;
 
+@property(nonatomic, strong) JYMessageSearch *searchMessageBaidu;
 @property(nonatomic, strong) JYMessageSearch *searchMessageSogou;
 @property(nonatomic, strong) JYMessageSearch *searchMessageToutiao;
 @property(nonatomic, strong) JYMessageAI *aiMessageDeepseek;
@@ -61,6 +65,7 @@ typedef enum : NSUInteger {
 @property(nonatomic, strong) JYMessageAI *aiMessageHunyuan;
 @property(nonatomic, strong) JYMessageAI *aiMessageMixed;
 
+@property(nonatomic, strong) JYChatMessageSearchCell *searchCellBaidu;
 @property(nonatomic, strong) JYChatMessageSearchCell *searchCellSogou;
 @property(nonatomic, strong) JYChatMessageSearchCell *searchCellToutiao;
 @property(nonatomic, strong) JYChatMessageAICell *aiCellDeepseek;
@@ -243,6 +248,27 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         });
     }
     
+    if (self.workFlowStatus.requestSearchKeyword == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestSearchBaidu == JYWorkFlowNodeStatusPending) {
+        self.workFlowStatus.requestSearchBaidu = JYWorkFlowNodeStatusRunning;
+        [self workFlowStatusDidUpdate];
+        
+        [JYPromiseHelper.sharedInstance requestSearchWithKeyword:self.workFlowStatus.searchKeyword engine:JYMessageSearchEngineBaidu].then(^(NSArray<JYMessageSearchResult *> *resultList) {
+            NSLog(@"[jy] WorkFlow requestSearchBaidu resultList: %@", resultList.yy_modelToJSONString);
+            JYMessageSearch *message = [[JYMessageSearch alloc] init];
+            message.engine = JYMessageSearchEngineBaidu;
+            [message setResultList:resultList];
+            self.workFlowStatus.searchMessageBaidu = message;
+            
+            self.workFlowStatus.requestSearchBaidu = JYWorkFlowNodeStatusFulfilled;
+            [self workFlowStatusDidUpdate];
+        }).catch(^(NSError *error) {
+            NSLog(@"[jy] WorkFlow requestSearchBaidu error: %@", error);
+            
+            self.workFlowStatus.requestSearchBaidu = JYWorkFlowNodeStatusRejected;
+            [self workFlowStatusDidUpdate];
+        });
+    }
+    
     if (self.workFlowStatus.requestSearchKeyword == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestSearchSogou == JYWorkFlowNodeStatusPending) {
         self.workFlowStatus.requestSearchSogou = JYWorkFlowNodeStatusRunning;
         [self workFlowStatusDidUpdate];
@@ -281,6 +307,34 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             NSLog(@"[jy] WorkFlow requestSearchToutiao error: %@", error);
             
             self.workFlowStatus.requestSearchToutiao = JYWorkFlowNodeStatusRejected;
+            [self workFlowStatusDidUpdate];
+        });
+    }
+    
+    if (self.workFlowStatus.requestSearchBaidu == JYWorkFlowNodeStatusFulfilled && self.workFlowStatus.requestWebContentBaidu == JYWorkFlowNodeStatusPending) {
+        self.workFlowStatus.requestWebContentBaidu = JYWorkFlowNodeStatusRunning;
+        [self workFlowStatusDidUpdate];
+        
+        NSArray<NSString *> *urlList = [self.workFlowStatus.searchMessageBaidu.resultList qmui_mapWithBlock:^id _Nonnull(JYMessageSearchResult *result, NSInteger index) {
+            return result.url ?: @"";
+        }];
+        [JYPromiseHelper.sharedInstance requestWebContentListWithUrlList:urlList].then(^(NSArray<JYMessageSearchResult *> *resultList) {
+            for (JYMessageSearchResult *result in resultList) {
+                JYMessageSearchResult *originResult = [self.workFlowStatus.searchMessageBaidu.resultList qmui_firstMatchWithBlock:^BOOL(JYMessageSearchResult * _Nonnull item) {
+                    return [item.url isEqualToString:result.url];
+                }];
+                if (originResult) {
+                    originResult.content = result.content;
+                }
+            }
+            NSLog(@"[jy] WorkFlow requestWebContentBaidu message: %@", self.workFlowStatus.searchMessageBaidu.resultList.yy_modelToJSONString);
+            
+            self.workFlowStatus.requestWebContentBaidu = JYWorkFlowNodeStatusFulfilled;
+            [self workFlowStatusDidUpdate];
+        }).catch(^(NSError *error) {
+            NSLog(@"[jy] WorkFlow requestWebContentBaidu error: %@", error);
+            
+            self.workFlowStatus.requestWebContentBaidu = JYWorkFlowNodeStatusRejected;
             [self workFlowStatusDidUpdate];
         });
     }
@@ -341,8 +395,10 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         });
     }
     
-    if (isEnded(self.workFlowStatus.requestSearchSogou) && isEnded(self.workFlowStatus.requestSearchToutiao) && self.workFlowStatus.generatePrompt == JYWorkFlowNodeStatusPending) {
-        BOOL isSearchFulfilled = (self.workFlowStatus.requestSearchSogou == JYWorkFlowNodeStatusFulfilled || self.workFlowStatus.requestSearchToutiao == JYWorkFlowNodeStatusFulfilled);
+    if (isEnded(self.workFlowStatus.requestSearchBaidu) && isEnded(self.workFlowStatus.requestSearchSogou) && isEnded(self.workFlowStatus.requestSearchToutiao) && self.workFlowStatus.generatePrompt == JYWorkFlowNodeStatusPending) {
+        BOOL isSearchFulfilled = (self.workFlowStatus.requestSearchBaidu == JYWorkFlowNodeStatusFulfilled ||
+                                  self.workFlowStatus.requestSearchSogou == JYWorkFlowNodeStatusFulfilled ||
+                                  self.workFlowStatus.requestSearchToutiao == JYWorkFlowNodeStatusFulfilled);
         if (self.workFlowStatus.enableOnlineSearch && isSearchFulfilled) {
             NSMutableString *reference = [NSMutableString string];
             self.workFlowStatus.generatePrompt = JYWorkFlowNodeStatusRunning;
@@ -531,7 +587,34 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         });
     }
     
-    if (isEnded(self.workFlowStatus.requestSearchSogou) && self.workFlowStatus.uiSearchSogou == JYWorkFlowNodeStatusPending) {
+    if (isEnded(self.workFlowStatus.requestSearchBaidu) && self.workFlowStatus.uiSearchBaidu == JYWorkFlowNodeStatusPending) {
+        if (self.workFlowStatus.requestSearchBaidu == JYWorkFlowNodeStatusFulfilled) {
+            self.workFlowStatus.uiSearchBaidu = JYWorkFlowNodeStatusRunning;
+            [self workFlowStatusDidUpdate];
+            
+            dispatch_async(dispatch_get_main_queue(), ^{
+                JYChatMessageSearchCell *cell = [[JYChatMessageSearchCell alloc] init];
+                [cell refreshWithEngine:JYMessageSearchEngineBaidu];
+                [self.stackView addArrangedSubview:cell];
+                [cell setResultList:self.workFlowStatus.searchMessageBaidu.resultList];
+                @weakify(self);
+                cell.stopAnimationAction = ^{
+                    @strongify(self);
+                    self.workFlowStatus.uiSearchBaidu = JYWorkFlowNodeStatusFulfilled;
+                    [self workFlowStatusDidUpdate];
+                };
+                self.workFlowStatus.searchCellBaidu = cell;
+                
+                self.inputView.placeholder = [NSString stringWithFormat:@"%@ 搜索中", searchEngineDescription(JYMessageSearchEngineBaidu)];
+                [self.inputView startPlaceholderLoading];
+            });
+        } else {
+            self.workFlowStatus.uiSearchBaidu = JYWorkFlowNodeStatusSkipped;
+            [self workFlowStatusDidUpdate];
+        }
+    }
+    
+    if (isEnded(self.workFlowStatus.uiSearchBaidu) && isEnded(self.workFlowStatus.requestSearchSogou) && self.workFlowStatus.uiSearchSogou == JYWorkFlowNodeStatusPending) {
         if (self.workFlowStatus.requestSearchSogou == JYWorkFlowNodeStatusFulfilled) {
             self.workFlowStatus.uiSearchSogou = JYWorkFlowNodeStatusRunning;
             [self workFlowStatusDidUpdate];
@@ -558,7 +641,7 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
         }
     }
     
-    if (isEnded(self.workFlowStatus.requestSearchToutiao) && isEnded(self.workFlowStatus.uiSearchSogou) && self.workFlowStatus.uiSearchToutiao == JYWorkFlowNodeStatusPending) {
+    if (isEnded(self.workFlowStatus.uiSearchSogou) && isEnded(self.workFlowStatus.requestSearchToutiao) && self.workFlowStatus.uiSearchToutiao == JYWorkFlowNodeStatusPending) {
         if (self.workFlowStatus.requestSearchToutiao == JYWorkFlowNodeStatusFulfilled) {
             self.workFlowStatus.uiSearchToutiao = JYWorkFlowNodeStatusRunning;
             [self workFlowStatusDidUpdate];
