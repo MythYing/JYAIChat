@@ -4,25 +4,15 @@ platform :ios, '15.6'
 # use_frameworks!
 
 target 'AIChat' do
-    pod 'YYCategories',
-      :git => 'https://github.com/ibireme/YYCategories.git',
-      :tag => '1.0.4'
-      
-    pod 'YYModel',
-      :git => 'https://github.com/ibireme/YYModel.git',
-      :tag => '1.0.4'
-
-    pod 'Masonry',
-      :git => 'https://github.com/SnapKit/Masonry.git',
-      :tag => 'v1.1.0'
-
-    pod 'AFNetworking',
-      :git => 'https://github.com/AFNetworking/AFNetworking.git',
-      :tag => '4.0.1'
-      
-    pod 'PromiseKit',
-      :git => 'https://github.com/mxcl/PromiseKit.git',
-      :tag => '8.2.0'
+    pod 'YYCategories'
+    pod 'YYModel'
+    pod 'Masonry'
+    pod 'AFNetworking'
+    pod 'PromiseKit'
+    pod 'QMUIKit'
+    
+    pod 'LookinServer', :configurations => ['Debug']
+    pod 'FLEX', :configurations => ['Debug']
 
 #    pod 'NORMarkdownParser',
 #      :git => 'https://github.com/MythYing/NORMarkdownParser.git',
@@ -38,15 +28,6 @@ target 'AIChat' do
 #    pod 'MarkdownTextView',
 #      :git => 'https://github.com/indragiek/MarkdownTextView.git',
 #      :tag => '1.0.1'
-
-    pod 'QMUIKit',
-      :git => 'https://github.com/Tencent/QMUI_iOS.git',
-      :tag => '4.8.0'
-
-    pod 'LookinServer',
-      :git => 'https://github.com/QMUI/LookinServer.git',
-      :tag => '1.0.5',
-      :configurations => ['Debug']
 
     pod 'JYEventSource',
       :git => 'https://github.com/MythYing/JYEventSource.git',

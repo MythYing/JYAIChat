@@ -7,6 +7,7 @@
 
 #import "JYChatNavigationBar.h"
 #import "JYMacro.h"
+#import <FLEX/FLEX.h>
 
 @interface JYChatNavigationBar ()
 
@@ -78,6 +79,8 @@
         make.height.equalTo(@1);
         make.leading.trailing.bottom.equalTo(self.navView);
     }];
+    
+    [self.titleView addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(onTitle)]];
 }
 
 - (void)didMoveToWindow {
@@ -94,6 +97,12 @@
 }
 
 #pragma mark - Action
+
+- (void)onTitle {
+#if DEBUG
+    [[FLEXManager sharedManager] showExplorer];
+#endif
+}
 
 - (void)onNewChat {
     JY_SAFE_BLOCK(self.newChatAction);
