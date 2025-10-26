@@ -714,22 +714,27 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
     if (isEnded(self.uiPrompt) &&
         self.aiCellDeepseek &&
         isPending(self.uiReplyDeepseek)) {
-        self.uiReplyDeepseek = JYWorkFlowNodeStatusRunning;
-        [self workFlowStatusDidUpdate];
-        
-        dispatch_async(dispatch_get_main_queue(), ^{
-            @weakify(self);
-            self.aiCellDeepseek.stopAnimationAction = ^{
-                @strongify(self);
-                self.uiReplyDeepseek = JYWorkFlowNodeStatusFulfilled;
-                [self workFlowStatusDidUpdate];
-            };
-            [self.vc.stackView addArrangedSubview:self.aiCellDeepseek];
-            [self.aiCellDeepseek startAnimation];
+        if (isRejected(self.requestReplyDeepseek)) {
+            self.uiReplyDeepseek = JYWorkFlowNodeStatusSkipped;
+            [self workFlowStatusDidUpdate];
+        } else {
+            self.uiReplyDeepseek = JYWorkFlowNodeStatusRunning;
+            [self workFlowStatusDidUpdate];
             
-            self.vc.inputView.placeholder = [NSString stringWithFormat:@"%@ 生成中", aiModelDescription(JYMessageAIModelDeepseek)];
-            [self.vc.inputView startPlaceholderLoading];
-        });
+            dispatch_async(dispatch_get_main_queue(), ^{
+                @weakify(self);
+                self.aiCellDeepseek.stopAnimationAction = ^{
+                    @strongify(self);
+                    self.uiReplyDeepseek = JYWorkFlowNodeStatusFulfilled;
+                    [self workFlowStatusDidUpdate];
+                };
+                [self.vc.stackView addArrangedSubview:self.aiCellDeepseek];
+                [self.aiCellDeepseek startAnimation];
+                
+                self.vc.inputView.placeholder = [NSString stringWithFormat:@"%@ 生成中", aiModelDescription(JYMessageAIModelDeepseek)];
+                [self.vc.inputView startPlaceholderLoading];
+            });
+        }
     }
 }
 
@@ -737,22 +742,27 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
     if (isEnded(self.uiReplyDeepseek) &&
         self.aiCellDoubao &&
         isPending(self.uiReplyDoubao)) {
-        self.uiReplyDoubao = JYWorkFlowNodeStatusRunning;
-        [self workFlowStatusDidUpdate];
-        
-        dispatch_async(dispatch_get_main_queue(), ^{
-            @weakify(self);
-            self.aiCellDoubao.stopAnimationAction = ^{
-                @strongify(self);
-                self.uiReplyDoubao = JYWorkFlowNodeStatusFulfilled;
-                [self workFlowStatusDidUpdate];
-            };
-            [self.vc.stackView addArrangedSubview:self.aiCellDoubao];
-            [self.aiCellDoubao startAnimation];
+        if (isRejected(self.requestReplyDoubao)) {
+            self.uiReplyDoubao = JYWorkFlowNodeStatusSkipped;
+            [self workFlowStatusDidUpdate];
+        } else {
+            self.uiReplyDoubao = JYWorkFlowNodeStatusRunning;
+            [self workFlowStatusDidUpdate];
             
-            self.vc.inputView.placeholder = [NSString stringWithFormat:@"%@ 生成中", aiModelDescription(JYMessageAIModelDoubao)];
-            [self.vc.inputView startPlaceholderLoading];
-        });
+            dispatch_async(dispatch_get_main_queue(), ^{
+                @weakify(self);
+                self.aiCellDoubao.stopAnimationAction = ^{
+                    @strongify(self);
+                    self.uiReplyDoubao = JYWorkFlowNodeStatusFulfilled;
+                    [self workFlowStatusDidUpdate];
+                };
+                [self.vc.stackView addArrangedSubview:self.aiCellDoubao];
+                [self.aiCellDoubao startAnimation];
+                
+                self.vc.inputView.placeholder = [NSString stringWithFormat:@"%@ 生成中", aiModelDescription(JYMessageAIModelDoubao)];
+                [self.vc.inputView startPlaceholderLoading];
+            });
+        }
     }
 }
 
@@ -760,22 +770,27 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
     if (isEnded(self.uiReplyDoubao) &&
         self.aiCellHunyuan &&
         isPending(self.uiReplyHunyuan)) {
-        self.uiReplyHunyuan = JYWorkFlowNodeStatusRunning;
-        [self workFlowStatusDidUpdate];
-        
-        dispatch_async(dispatch_get_main_queue(), ^{
-            @weakify(self);
-            self.aiCellHunyuan.stopAnimationAction = ^{
-                @strongify(self);
-                self.uiReplyHunyuan = JYWorkFlowNodeStatusFulfilled;
-                [self workFlowStatusDidUpdate];
-            };
-            [self.vc.stackView addArrangedSubview:self.aiCellHunyuan];
-            [self.aiCellHunyuan startAnimation];
+        if (isRejected(self.requestReplyHunyuan)) {
+            self.uiReplyHunyuan = JYWorkFlowNodeStatusSkipped;
+            [self workFlowStatusDidUpdate];
+        } else {
+            self.uiReplyHunyuan = JYWorkFlowNodeStatusRunning;
+            [self workFlowStatusDidUpdate];
             
-            self.vc.inputView.placeholder = [NSString stringWithFormat:@"%@ 生成中", aiModelDescription(JYMessageAIModelHunyuan)];
-            [self.vc.inputView startPlaceholderLoading];
-        });
+            dispatch_async(dispatch_get_main_queue(), ^{
+                @weakify(self);
+                self.aiCellHunyuan.stopAnimationAction = ^{
+                    @strongify(self);
+                    self.uiReplyHunyuan = JYWorkFlowNodeStatusFulfilled;
+                    [self workFlowStatusDidUpdate];
+                };
+                [self.vc.stackView addArrangedSubview:self.aiCellHunyuan];
+                [self.aiCellHunyuan startAnimation];
+                
+                self.vc.inputView.placeholder = [NSString stringWithFormat:@"%@ 生成中", aiModelDescription(JYMessageAIModelHunyuan)];
+                [self.vc.inputView startPlaceholderLoading];
+            });
+        }
     }
 }
 
@@ -799,22 +814,27 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
     if (isEnded(self.uiPromptMixed) &&
         self.aiCellMixed &&
         isPending(self.uiReplyMixed)) {
-        self.uiReplyMixed = JYWorkFlowNodeStatusRunning;
-        [self workFlowStatusDidUpdate];
-        
-        dispatch_async(dispatch_get_main_queue(), ^{
-            @weakify(self);
-            self.aiCellMixed.stopAnimationAction = ^{
-                @strongify(self);
-                self.uiReplyMixed = JYWorkFlowNodeStatusFulfilled;
-                [self workFlowStatusDidUpdate];
-            };
-            [self.vc.stackView addArrangedSubview:self.aiCellMixed];
-            [self.aiCellMixed startAnimation];
+        if (isRejected(self.requestReplyMixed)) {
+            self.uiReplyMixed = JYWorkFlowNodeStatusSkipped;
+            [self workFlowStatusDidUpdate];
+        } else {
+            self.uiReplyMixed = JYWorkFlowNodeStatusRunning;
+            [self workFlowStatusDidUpdate];
             
-            self.vc.inputView.placeholder = [NSString stringWithFormat:@"%@ 生成中", aiModelDescription(JYMessageAIModelMixed)];
-            [self.vc.inputView startPlaceholderLoading];
-        });
+            dispatch_async(dispatch_get_main_queue(), ^{
+                @weakify(self);
+                self.aiCellMixed.stopAnimationAction = ^{
+                    @strongify(self);
+                    self.uiReplyMixed = JYWorkFlowNodeStatusFulfilled;
+                    [self workFlowStatusDidUpdate];
+                };
+                [self.vc.stackView addArrangedSubview:self.aiCellMixed];
+                [self.aiCellMixed startAnimation];
+                
+                self.vc.inputView.placeholder = [NSString stringWithFormat:@"%@ 生成中", aiModelDescription(JYMessageAIModelMixed)];
+                [self.vc.inputView startPlaceholderLoading];
+            });
+        }
     }
 }
 
