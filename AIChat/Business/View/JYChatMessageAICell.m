@@ -7,6 +7,7 @@
 
 #import "JYChatMessageAICell.h"
 #import "JYMacro.h"
+#import "AIChat-Swift.h"
 #import <JYSegmentedLabel/JYSegmentedLabel.h>
 
 @interface JYChatMessageAICell () <JYSegmentedLabelDelegate>
@@ -178,6 +179,14 @@
         label.font = [UIFont systemFontOfSize:16];
         label.textColor = UIColor.firstTextColor;
         label.numberOfLines = 0;
+    }
+}
+
+- (NSAttributedString *)segmentedLabel:(JYSegmentedLabel *)segmentedLabel attributedStringWithMarkdown:(NSString *)markdown {
+    if (segmentedLabel == self.thoughtLabel) {
+        return [JYMarkdownParser parseThoughtWithMarkdown:markdown];
+    } else {
+        return [JYMarkdownParser parseContentWithMarkdown:markdown];
     }
 }
 

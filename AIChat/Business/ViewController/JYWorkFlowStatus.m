@@ -386,6 +386,8 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
                                     "你是一个专业的AI问答助手，请根据问题回答，以下会给你一些参考资料。""\n"
                                     "# 问题""\n"
                                     "%@""\n"
+                                    "# 回复规则""\n"
+                                    "# 禁止回复Markdown的表格语法。""\n"
                                     "# 参考资料""\n"
                                     "%@""\n", self.query ?: @"", reference];
                 self.prompt = prompt;
@@ -404,7 +406,8 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
                                 "你是一个专业的AI问答助手，请根据问题回答。""\n"
                                 "# 问题""\n"
                                 "%@""\n"
-                                "# 参考资料""\n", self.query ?: @""];
+                                "# 回复规则""\n"
+                                "# 禁止回复Markdown的表格语法。""\n", self.query ?: @""];
             self.prompt = prompt;
             NSLog(@"[jy] WorkFlow generatePrompt prompt: %@", prompt);
             
@@ -540,7 +543,9 @@ static BOOL isEnded(JYWorkFlowNodeStatus status) {
             NSString *prompt = [NSString stringWithFormat:@"# 角色""\n"
                                 "你是一个擅长“答案汇总”的专家，你将会收到关于一个问题的多个答案，你需要对多个答案进行去重、整合等处理，输出一个最终答案。""\n"
                                 "# 问题""\n"
-                                "%@""\n", reply];
+                                "%@""\n"
+                                "# 回复规则""\n"
+                                "# 禁止回复Markdown的表格语法。""\n", reply];
             self.promptMixed = prompt;
             
             self.generatePromptMixed = JYWorkFlowNodeStatusFulfilled;
